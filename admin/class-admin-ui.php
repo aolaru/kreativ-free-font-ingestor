@@ -309,8 +309,12 @@ class KFI_Admin_UI {
 			return;
 		}
 
-		$logger = $this->plugin->get_logger();
-		$logs   = $logger->get_logs();
+		$logger        = $this->plugin->get_logger();
+		$logs          = $logger->get_logs();
+		$tracker       = $this->plugin->get_download_tracker();
+		$download_totals = $tracker->get_overview_stats();
+		$top_downloads   = $tracker->get_top_downloads( 10 );
+		$recent_downloads = $tracker->get_recent_downloads( 15 );
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'Kreativ Font Ingestor', 'kreativ-font-ingestor' ); ?></h1>
@@ -386,6 +390,80 @@ class KFI_Admin_UI {
 				<input id="kfi-regenerate-limit" type="number" min="1" max="100" name="limit" value="10" />
 				<?php submit_button( __( 'Regenerate Recent Imported Posts', 'kreativ-font-ingestor' ), 'secondary', 'submit', false, array( 'style' => 'margin-left:8px;' ) ); ?>
 			</form>
+
+			<hr />
+
+			<h2><?php esc_html_e( 'Download Statistics', 'kreativ-font-ingestor' ); ?></h2>
+			<div style="display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:12px;max-width:920px;margin-bottom:16px;">
+				<div style="background:#fff;border:1px solid #dcdcde;border-radius:12px;padding:14px;">
+					<strong style="display:block;font-size:24px;"><?php echo esc_html( (string) $download_totals['total'] ); ?></strong>
+					<span><?php esc_html_e( 'Total Downloads', 'kreativ-font-ingestor' ); ?></span>
+				</div>
+				<div style="background:#fff;border:1px solid #dcdcde;border-radius:12px;padding:14px;">
+					<strong style="display:block;font-size:24px;"><?php echo esc_html( (string) $download_totals['today'] ); ?></strong>
+					<span><?php esc_html_e( 'Today', 'kreativ-font-ingestor' ); ?></span>
+				</div>
+				<div style="background:#fff;border:1px solid #dcdcde;border-radius:12px;padding:14px;">
+					<strong style="display:block;font-size:24px;"><?php echo esc_html( (string) $download_totals['week'] ); ?></strong>
+					<span><?php esc_html_e( 'Last 7 Days', 'kreativ-font-ingestor' ); ?></span>
+				</div>
+				<div style="background:#fff;border:1px solid #dcdcde;border-radius:12px;padding:14px;">
+					<strong style="display:block;font-size:24px;"><?php echo esc_html( (string) $download_totals['month'] ); ?></strong>
+					<span><?php esc_html_e( 'Last 30 Days', 'kreativ-font-ingestor' ); ?></span>
+				</div>
+			</div>
+			<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start;">
+				<div>
+					<h3><?php esc_html_e( 'Top Downloaded Fonts', 'kreativ-font-ingestor' ); ?></h3>
+					<table class="widefat striped">
+						<thead>
+							<tr>
+								<th><?php esc_html_e( 'Font', 'kreativ-font-ingestor' ); ?></th>
+								<th><?php esc_html_e( 'Downloads', 'kreativ-font-ingestor' ); ?></th>
+								<th><?php esc_html_e( 'Last Download', 'kreativ-font-ingestor' ); ?></th>
+							</tr>
+						</thead>
+						<tbody>
+							<?php if ( empty( $top_downloads ) ) : ?>
+								<tr><td colspan="3"><?php esc_html_e( 'No download data yet.', 'kreativ-font-ingestor' ); ?></td></tr>
+							<?php else : ?>
+								<?php foreach ( $top_downloads as $row ) : ?>
+									<tr>
+										<td><a href="<?php echo esc_url( get_edit_post_link( $row['post_id'] ) ); ?>"><?php echo esc_html( $row['font_family'] ? $row['font_family'] : $row['title'] ); ?></a></td>
+										<td><?php echo esc_html( (string) $row['download_count'] ); ?></td>
+										<td><?php echo esc_html( $row['last_download'] ? $row['last_download'] : '—' ); ?></td>
+									</tr>
+								<?php endforeach; ?>
+							<?php endif; ?>
+						</tbody>
+					</table>
+				</div>
+				<div>
+					<h3><?php esc_html_e( 'Recent Downloads', 'kreativ-font-ingestor' ); ?></h3>
+					<table class="widefat striped">
+						<thead>
+							<tr>
+								<th><?php esc_html_e( 'Font', 'kreativ-font-ingestor' ); ?></th>
+								<th><?php esc_html_e( 'Downloaded At', 'kreativ-font-ingestor' ); ?></th>
+								<th><?php esc_html_e( 'Referrer', 'kreativ-font-ingestor' ); ?></th>
+							</tr>
+						</thead>
+						<tbody>
+							<?php if ( empty( $recent_downloads ) ) : ?>
+								<tr><td colspan="3"><?php esc_html_e( 'No tracked downloads yet.', 'kreativ-font-ingestor' ); ?></td></tr>
+							<?php else : ?>
+								<?php foreach ( $recent_downloads as $row ) : ?>
+									<tr>
+										<td><a href="<?php echo esc_url( get_edit_post_link( absint( $row['post_id'] ) ) ); ?>"><?php echo esc_html( $row['font_family'] ); ?></a></td>
+										<td><?php echo esc_html( sanitize_text_field( $row['downloaded_at'] ) ); ?></td>
+										<td><?php echo esc_html( ! empty( $row['referrer_url'] ) ? wp_parse_url( $row['referrer_url'], PHP_URL_HOST ) : 'Direct' ); ?></td>
+									</tr>
+								<?php endforeach; ?>
+							<?php endif; ?>
+						</tbody>
+					</table>
+				</div>
+			</div>
 
 			<hr />
 

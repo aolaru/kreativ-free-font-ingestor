@@ -28,6 +28,8 @@ define( 'KFI_TRANSIENT_FONTS', 'kfi_google_fonts_list' );
 define( 'KFI_CRON_HOOK', 'kfi_cron_import_fonts' );
 define( 'KFI_IMPORT_LOCK', 'kfi_import_lock' );
 define( 'KFI_TABLE_IMPORTS', 'kfi_imported_fonts' );
+define( 'KFI_TABLE_DOWNLOADS', 'kfi_download_events' );
+define( 'KFI_DB_VERSION', '1.0.0' );
 
 require_once KFI_PLUGIN_DIR . 'includes/class-logger.php';
 require_once KFI_PLUGIN_DIR . 'includes/class-api.php';
@@ -38,6 +40,7 @@ require_once KFI_PLUGIN_DIR . 'includes/class-publisher.php';
 require_once KFI_PLUGIN_DIR . 'includes/class-cron.php';
 require_once KFI_PLUGIN_DIR . 'includes/class-featured-image.php';
 require_once KFI_PLUGIN_DIR . 'includes/class-frontend.php';
+require_once KFI_PLUGIN_DIR . 'includes/class-download-tracker.php';
 require_once KFI_PLUGIN_DIR . 'admin/class-admin-ui.php';
 
 final class KFI_Plugin {
@@ -112,6 +115,13 @@ final class KFI_Plugin {
 	private $frontend;
 
 	/**
+	 * Download tracker.
+	 *
+	 * @var KFI_Download_Tracker
+	 */
+	private $download_tracker;
+
+	/**
 	 * Admin controller.
 	 *
 	 * @var KFI_Admin_UI
@@ -144,9 +154,27 @@ final class KFI_Plugin {
 		$this->cron       = new KFI_Cron( $this );
 		$this->featured_image = new KFI_Featured_Image( $this->logger );
 		$this->frontend   = new KFI_Frontend();
+		$this->download_tracker = new KFI_Download_Tracker( $this->logger );
 		$this->admin      = new KFI_Admin_UI( $this );
 
+		add_action( 'plugins_loaded', array( $this, 'maybe_upgrade' ), 5 );
 		add_action( 'plugins_loaded', array( $this, 'load_textdomain' ) );
+	}
+
+	/**
+	 * Ensure database schema is up to date after plugin updates.
+	 *
+	 * @return void
+	 */
+	public function maybe_upgrade() {
+		$stored_version = get_option( 'kfi_db_version', '' );
+
+		if ( KFI_DB_VERSION === $stored_version ) {
+			return;
+		}
+
+		self::create_database_schema();
+		update_option( 'kfi_db_version', KFI_DB_VERSION );
 	}
 
 	/**
@@ -164,25 +192,8 @@ final class KFI_Plugin {
 	 * @return void
 	 */
 	public static function activate() {
-		global $wpdb;
-
-		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-
-		$table_name      = $wpdb->prefix . KFI_TABLE_IMPORTS;
-		$charset_collate = $wpdb->get_charset_collate();
-		$sql             = "CREATE TABLE {$table_name} (
-			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-			font_family varchar(191) NOT NULL,
-			font_slug varchar(191) NOT NULL,
-			post_id bigint(20) unsigned DEFAULT 0,
-			zip_url text NOT NULL,
-			source_hash varchar(64) NOT NULL,
-			imported_at datetime NOT NULL,
-			PRIMARY KEY  (id),
-			UNIQUE KEY font_slug (font_slug)
-		) {$charset_collate};";
-
-		dbDelta( $sql );
+		self::create_database_schema();
+		update_option( 'kfi_db_version', KFI_DB_VERSION );
 
 		$defaults = array(
 			'api_key'                    => '',
@@ -205,6 +216,49 @@ final class KFI_Plugin {
 
 		add_filter( 'cron_schedules', array( 'KFI_Cron', 'add_schedule' ) );
 		KFI_Cron::register_schedule();
+	}
+
+	/**
+	 * Create or update plugin database tables.
+	 *
+	 * @return void
+	 */
+	private static function create_database_schema() {
+		global $wpdb;
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+		$table_name      = $wpdb->prefix . KFI_TABLE_IMPORTS;
+		$downloads_table = $wpdb->prefix . KFI_TABLE_DOWNLOADS;
+		$charset_collate = $wpdb->get_charset_collate();
+		$sql             = "CREATE TABLE {$table_name} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			font_family varchar(191) NOT NULL,
+			font_slug varchar(191) NOT NULL,
+			post_id bigint(20) unsigned DEFAULT 0,
+			zip_url text NOT NULL,
+			source_hash varchar(64) NOT NULL,
+			imported_at datetime NOT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY font_slug (font_slug)
+		) {$charset_collate};";
+
+		dbDelta( $sql );
+
+		$downloads_sql = "CREATE TABLE {$downloads_table} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			post_id bigint(20) unsigned NOT NULL,
+			font_family varchar(191) NOT NULL,
+			referrer_url text NOT NULL,
+			user_agent text NOT NULL,
+			ip_hash varchar(64) NOT NULL,
+			downloaded_at datetime NOT NULL,
+			PRIMARY KEY  (id),
+			KEY post_id (post_id),
+			KEY downloaded_at (downloaded_at)
+		) {$charset_collate};";
+
+		dbDelta( $downloads_sql );
 	}
 
 	/**
@@ -452,15 +506,6 @@ final class KFI_Plugin {
 			),
 			array( '%s', '%s', '%d', '%s', '%s', '%s' )
 		);
-	}
-
-	/**
-	 * Expose logger instance.
-	 *
-	 * @return KFI_Logger
-	 */
-	public function get_logger() {
-		return $this->logger;
 	}
 
 	/**
@@ -772,6 +817,24 @@ final class KFI_Plugin {
 		);
 
 		return array_map( 'absint', $posts );
+	}
+
+	/**
+	 * Expose logger instance.
+	 *
+	 * @return KFI_Logger
+	 */
+	public function get_logger() {
+		return $this->logger;
+	}
+
+	/**
+	 * Expose download tracker instance.
+	 *
+	 * @return KFI_Download_Tracker
+	 */
+	public function get_download_tracker() {
+		return $this->download_tracker;
 	}
 }
 

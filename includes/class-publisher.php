@@ -188,6 +188,14 @@ class KFI_Publisher {
 		update_post_meta( $post_id, '_kfi_variable_axes', ! empty( $font['axes'] ) && is_array( $font['axes'] ) ? $font['axes'] : array() );
 		update_post_meta( $post_id, '_kfi_copyrights', ! empty( $font['copyrights'] ) && is_array( $font['copyrights'] ) ? array_map( 'sanitize_text_field', $font['copyrights'] ) : array() );
 
+		if ( '' === (string) get_post_meta( $post_id, '_kfi_download_count', true ) ) {
+			update_post_meta( $post_id, '_kfi_download_count', 0 );
+		}
+
+		if ( '' === (string) get_post_meta( $post_id, '_kfi_last_download_at', true ) ) {
+			update_post_meta( $post_id, '_kfi_last_download_at', '' );
+		}
+
 		return true;
 	}
 

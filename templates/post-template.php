@@ -213,6 +213,11 @@ if ( ! function_exists( 'kfi_render_post_template' ) ) {
 		$text_direction = $samples['direction'];
 		$show_affiliate = ! empty( trim( wp_strip_all_tags( $affiliate ) ) );
 		$related_posts  = $post_id ? kfi_get_related_font_posts( $post_id, $font ) : array();
+		$download_url   = $zip['zip_url'];
+
+		if ( $post_id && class_exists( 'KFI_Plugin' ) ) {
+			$download_url = KFI_Plugin::instance()->get_download_tracker()->get_download_url( $post_id, $zip['zip_url'] );
+		}
 
 		foreach ( $axes as $axis ) {
 			if ( empty( $axis['tag'] ) ) {
@@ -241,7 +246,7 @@ if ( ! function_exists( 'kfi_render_post_template' ) ) {
 						<div><strong><?php echo esc_html( $zip_size ? $zip_size : 'ZIP Ready' ); ?></strong><span>Package Size</span></div>
 					</div>
 					<div class="kfi-inline-cta-row">
-						<a class="button button-primary" href="<?php echo esc_url( $zip['zip_url'] ); ?>" rel="nofollow">Download <?php echo esc_html( $font_name ); ?> ZIP</a>
+						<a class="button button-primary" href="<?php echo esc_url( $download_url ); ?>" rel="nofollow">Download <?php echo esc_html( $font_name ); ?> ZIP</a>
 						<span class="kfi-inline-note">Includes original files, OFL.txt, and metadata.json</span>
 					</div>
 				</div>
@@ -360,7 +365,7 @@ if ( ! function_exists( 'kfi_render_post_template' ) ) {
 					<p>Save the local ZIP package for design testing, client mockups, or production asset archiving.</p>
 				</div>
 				<p class="kfi-download-button">
-					<a class="button button-primary" href="<?php echo esc_url( $zip['zip_url'] ); ?>" rel="nofollow">Download ZIP Package</a>
+					<a class="button button-primary" href="<?php echo esc_url( $download_url ); ?>" rel="nofollow">Download ZIP Package</a>
 				</p>
 			</section>
 

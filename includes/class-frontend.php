@@ -98,6 +98,7 @@ class KFI_Frontend {
 		}
 
 		$zip_url      = esc_url( get_post_meta( $post_id, '_kfi_zip_url', true ) );
+		$tracked_url  = class_exists( 'KFI_Plugin' ) ? KFI_Plugin::instance()->get_download_tracker()->get_download_url( $post_id, $zip_url ) : $zip_url;
 		$zip_size     = sanitize_text_field( get_post_meta( $post_id, '_kfi_zip_size_human', true ) );
 		$variant_count = absint( get_post_meta( $post_id, '_kfi_variant_count', true ) );
 		$subsets      = get_post_meta( $post_id, '_kfi_subsets', true );
@@ -126,7 +127,7 @@ class KFI_Frontend {
 			'isAccessibleForFree' => true,
 			'distribution'       => array(
 				'@type'          => 'DataDownload',
-				'contentUrl'     => $zip_url,
+				'contentUrl'     => $tracked_url,
 				'encodingFormat' => 'application/zip',
 				'contentSize'    => $zip_size,
 			),
