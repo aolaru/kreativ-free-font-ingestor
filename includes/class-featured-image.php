@@ -113,14 +113,17 @@ class KFI_Featured_Image {
 
 		imageantialias( $image, true );
 
-		$bg_start   = array( 245, 241, 255 );
-		$bg_end     = array( 255, 255, 255 );
-		$violet     = imagecolorallocate( $image, 111, 70, 255 );
-		$deep       = imagecolorallocate( $image, 34, 27, 64 );
-		$soft_dark  = imagecolorallocate( $image, 89, 83, 118 );
-		$mint       = imagecolorallocate( $image, 171, 255, 208 );
+		$theme      = $this->get_category_theme( $data['category'] );
+		$bg_start   = $theme['bg_start'];
+		$bg_end     = $theme['bg_end'];
+		$accent     = imagecolorallocate( $image, $theme['accent'][0], $theme['accent'][1], $theme['accent'][2] );
+		$deep       = imagecolorallocate( $image, $theme['deep'][0], $theme['deep'][1], $theme['deep'][2] );
+		$soft_dark  = imagecolorallocate( $image, $theme['soft_dark'][0], $theme['soft_dark'][1], $theme['soft_dark'][2] );
+		$shape_a    = imagecolorallocatealpha( $image, $theme['shape_a'][0], $theme['shape_a'][1], $theme['shape_a'][2], $theme['shape_a_alpha'] );
+		$shape_b    = imagecolorallocatealpha( $image, $theme['shape_b'][0], $theme['shape_b'][1], $theme['shape_b'][2], $theme['shape_b_alpha'] );
 		$white      = imagecolorallocate( $image, 255, 255, 255 );
-		$panel_fill = imagecolorallocatealpha( $image, 255, 255, 255, 16 );
+		$panel_fill = imagecolorallocatealpha( $image, 255, 255, 255, 18 );
+		$line_color = imagecolorallocatealpha( $image, $theme['line'][0], $theme['line'][1], $theme['line'][2], 44 );
 		$samples    = $this->get_specimen_samples( $data['subsets'], $data['font_name'] );
 
 		for ( $y = 0; $y < $height; $y++ ) {
@@ -132,12 +135,12 @@ class KFI_Featured_Image {
 			imageline( $image, 0, $y, $width, $y, $line );
 		}
 
-		imagefilledellipse( $image, 1250, 110, 560, 560, imagecolorallocatealpha( $image, 143, 109, 255, 92 ) );
-		imagefilledellipse( $image, 180, 780, 420, 420, imagecolorallocatealpha( $image, 142, 232, 188, 104 ) );
+		imagefilledellipse( $image, 1250, 120, $theme['hero_shape_w'], $theme['hero_shape_h'], $shape_a );
+		imagefilledellipse( $image, 220, 760, $theme['secondary_shape_w'], $theme['secondary_shape_h'], $shape_b );
 		imagefilledrectangle( $image, 84, 92, 1516, 808, $panel_fill );
 
 		imagesetthickness( $image, 3 );
-		imagerectangle( $image, 84, 92, 1516, 808, imagecolorallocatealpha( $image, 220, 214, 246, 36 ) );
+		imagerectangle( $image, 84, 92, 1516, 808, $line_color );
 		imagesetthickness( $image, 1 );
 
 		$this->draw_text(
@@ -147,7 +150,20 @@ class KFI_Featured_Image {
 				'x'         => 120,
 				'y'         => 160,
 				'size'      => 24,
-				'color'     => $violet,
+				'color'     => $accent,
+				'font_path' => '',
+				'builtin'   => 5,
+			)
+		);
+
+		$this->draw_text(
+			$image,
+			array(
+				'text'      => $theme['kicker'],
+				'x'         => 120,
+				'y'         => 225,
+				'size'      => 30,
+				'color'     => $soft_dark,
 				'font_path' => '',
 				'builtin'   => 5,
 			)
@@ -158,8 +174,8 @@ class KFI_Featured_Image {
 			array(
 				'text'      => $data['font_name'],
 				'x'         => 120,
-				'y'         => 320,
-				'size'      => 92,
+				'y'         => $theme['title_y'],
+				'size'      => $theme['title_size'],
 				'color'     => $deep,
 				'font_path' => $data['font_path'],
 				'builtin'   => 5,
@@ -171,7 +187,7 @@ class KFI_Featured_Image {
 			array(
 				'text'      => 'Free Download',
 				'x'         => 120,
-				'y'         => 405,
+				'y'         => $theme['subtitle_y'],
 				'size'      => 48,
 				'color'     => $soft_dark,
 				'font_path' => '',
@@ -184,7 +200,7 @@ class KFI_Featured_Image {
 			array(
 				'text'      => sprintf( '%s font package with local ZIP, OFL license, and commercial-use guidance.', $data['font_name'] ),
 				'x'         => 120,
-				'y'         => 500,
+				'y'         => $theme['body_y'],
 				'size'      => 28,
 				'color'     => $soft_dark,
 				'font_path' => '',
@@ -197,28 +213,85 @@ class KFI_Featured_Image {
 			array(
 				'text'      => sprintf( '%s specimen', ucfirst( $data['category'] ) ),
 				'x'         => 120,
-				'y'         => 620,
+				'y'         => $theme['specimen_label_y'],
 				'size'      => 30,
-				'color'     => $violet,
+				'color'     => $accent,
 				'font_path' => '',
 				'builtin'   => 5,
 			)
 		);
 
-		$this->draw_text(
-			$image,
-			array(
-				'text'      => $samples['headline'],
-				'x'         => 120,
-				'y'         => 720,
-				'size'      => 46,
-				'color'     => $deep,
-				'font_path' => $data['font_path'],
-				'builtin'   => 5,
-			)
-		);
+		if ( 'editorial' === $theme['layout'] ) {
+			imagefilledroundedrectangle( $image, 860, 180, 1410, 720, 30, imagecolorallocatealpha( $image, 255, 255, 255, 36 ) );
+			$this->draw_text(
+				$image,
+				array(
+					'text'      => $samples['headline'],
+					'x'         => 940,
+					'y'         => 430,
+					'size'      => 72,
+					'color'     => $deep,
+					'font_path' => $data['font_path'],
+					'builtin'   => 5,
+				)
+			);
+			$this->draw_text(
+				$image,
+				array(
+					'text'      => 'Editorial specimen',
+					'x'         => 940,
+					'y'         => 500,
+					'size'      => 24,
+					'color'     => $soft_dark,
+					'font_path' => '',
+					'builtin'   => 4,
+				)
+			);
+		} elseif ( 'interface' === $theme['layout'] ) {
+			imagefilledroundedrectangle( $image, 920, 170, 1450, 710, 32, imagecolorallocatealpha( $image, 255, 255, 255, 28 ) );
+			imagefilledroundedrectangle( $image, 970, 240, 1400, 320, 18, $white );
+			imagefilledroundedrectangle( $image, 970, 355, 1330, 430, 18, imagecolorallocatealpha( $image, 255, 255, 255, 22 ) );
+			imagefilledroundedrectangle( $image, 970, 468, 1240, 543, 18, imagecolorallocatealpha( $image, 255, 255, 255, 26 ) );
+			$this->draw_text(
+				$image,
+				array(
+					'text'      => $samples['headline'],
+					'x'         => 990,
+					'y'         => 292,
+					'size'      => 34,
+					'color'     => $deep,
+					'font_path' => $data['font_path'],
+					'builtin'   => 5,
+				)
+			);
+			$this->draw_text(
+				$image,
+				array(
+					'text'      => 'UI preview',
+					'x'         => 990,
+					'y'         => 404,
+					'size'      => 24,
+					'color'     => $soft_dark,
+					'font_path' => '',
+					'builtin'   => 4,
+				)
+			);
+		} else {
+			$this->draw_text(
+				$image,
+				array(
+					'text'      => $samples['headline'],
+					'x'         => 120,
+					'y'         => $theme['specimen_y'],
+					'size'      => $theme['specimen_size'],
+					'color'     => $deep,
+					'font_path' => $data['font_path'],
+					'builtin'   => 5,
+				)
+			);
+		}
 
-		imagefilledroundedrectangle( $image, 1130, 640, 1440, 726, 22, $violet );
+		imagefilledroundedrectangle( $image, 1110, 640, 1450, 726, 22, $accent );
 		$this->draw_text(
 			$image,
 			array(
@@ -232,7 +305,7 @@ class KFI_Featured_Image {
 			)
 		);
 
-		imagefilledellipse( $image, 1360, 250, 160, 160, $mint );
+		imagefilledellipse( $image, 1360, 250, 160, 160, $shape_b );
 		imagefilledellipse( $image, 1360, 250, 110, 110, $white );
 		$this->draw_text(
 			$image,
@@ -255,6 +328,149 @@ class KFI_Featured_Image {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Resolve visual theme by font category.
+	 *
+	 * @param string $category Font category.
+	 * @return array<string, mixed>
+	 */
+	private function get_category_theme( $category ) {
+		$category = strtolower( sanitize_text_field( $category ) );
+
+		$themes = array(
+			'display' => array(
+				'layout'            => 'poster',
+				'kicker'            => 'Bold display specimen',
+				'bg_start'          => array( 255, 241, 232 ),
+				'bg_end'            => array( 255, 252, 247 ),
+				'accent'            => array( 236, 85, 52 ),
+				'deep'              => array( 47, 24, 19 ),
+				'soft_dark'         => array( 118, 76, 64 ),
+				'shape_a'           => array( 245, 110, 66 ),
+				'shape_a_alpha'     => 92,
+				'shape_b'           => array( 255, 210, 84 ),
+				'shape_b_alpha'     => 96,
+				'line'              => array( 239, 177, 151 ),
+				'hero_shape_w'      => 640,
+				'hero_shape_h'      => 640,
+				'secondary_shape_w' => 420,
+				'secondary_shape_h' => 420,
+				'title_y'           => 340,
+				'title_size'        => 104,
+				'subtitle_y'        => 442,
+				'body_y'            => 528,
+				'specimen_label_y'  => 630,
+				'specimen_y'        => 760,
+				'specimen_size'     => 66,
+			),
+			'serif' => array(
+				'layout'            => 'editorial',
+				'kicker'            => 'Editorial serif specimen',
+				'bg_start'          => array( 242, 236, 228 ),
+				'bg_end'            => array( 252, 249, 244 ),
+				'accent'            => array( 145, 92, 52 ),
+				'deep'              => array( 44, 31, 24 ),
+				'soft_dark'         => array( 110, 91, 80 ),
+				'shape_a'           => array( 182, 134, 95 ),
+				'shape_a_alpha'     => 96,
+				'shape_b'           => array( 225, 204, 177 ),
+				'shape_b_alpha'     => 98,
+				'line'              => array( 203, 182, 159 ),
+				'hero_shape_w'      => 520,
+				'hero_shape_h'      => 520,
+				'secondary_shape_w' => 360,
+				'secondary_shape_h' => 360,
+				'title_y'           => 332,
+				'title_size'        => 86,
+				'subtitle_y'        => 430,
+				'body_y'            => 512,
+				'specimen_label_y'  => 622,
+				'specimen_y'        => 720,
+				'specimen_size'     => 52,
+			),
+			'sans-serif' => array(
+				'layout'            => 'interface',
+				'kicker'            => 'Clean interface specimen',
+				'bg_start'          => array( 238, 247, 249 ),
+				'bg_end'            => array( 251, 254, 255 ),
+				'accent'            => array( 38, 126, 162 ),
+				'deep'              => array( 22, 43, 55 ),
+				'soft_dark'         => array( 78, 103, 118 ),
+				'shape_a'           => array( 74, 172, 201 ),
+				'shape_a_alpha'     => 96,
+				'shape_b'           => array( 184, 235, 226 ),
+				'shape_b_alpha'     => 98,
+				'line'              => array( 176, 214, 221 ),
+				'hero_shape_w'      => 560,
+				'hero_shape_h'      => 560,
+				'secondary_shape_w' => 430,
+				'secondary_shape_h' => 430,
+				'title_y'           => 320,
+				'title_size'        => 96,
+				'subtitle_y'        => 414,
+				'body_y'            => 494,
+				'specimen_label_y'  => 604,
+				'specimen_y'        => 716,
+				'specimen_size'     => 54,
+			),
+			'monospace' => array(
+				'layout'            => 'interface',
+				'kicker'            => 'Monospace system specimen',
+				'bg_start'          => array( 236, 244, 236 ),
+				'bg_end'            => array( 248, 253, 248 ),
+				'accent'            => array( 43, 133, 90 ),
+				'deep'              => array( 19, 48, 34 ),
+				'soft_dark'         => array( 83, 113, 98 ),
+				'shape_a'           => array( 74, 183, 119 ),
+				'shape_a_alpha'     => 96,
+				'shape_b'           => array( 183, 229, 195 ),
+				'shape_b_alpha'     => 98,
+				'line'              => array( 180, 214, 191 ),
+				'hero_shape_w'      => 540,
+				'hero_shape_h'      => 540,
+				'secondary_shape_w' => 390,
+				'secondary_shape_h' => 390,
+				'title_y'           => 322,
+				'title_size'        => 90,
+				'subtitle_y'        => 414,
+				'body_y'            => 496,
+				'specimen_label_y'  => 602,
+				'specimen_y'        => 710,
+				'specimen_size'     => 52,
+			),
+		);
+
+		if ( isset( $themes[ $category ] ) ) {
+			return $themes[ $category ];
+		}
+
+		return array(
+			'layout'            => 'poster',
+			'kicker'            => 'Signature font specimen',
+			'bg_start'          => array( 245, 241, 255 ),
+			'bg_end'            => array( 255, 255, 255 ),
+			'accent'            => array( 111, 70, 255 ),
+			'deep'              => array( 34, 27, 64 ),
+			'soft_dark'         => array( 89, 83, 118 ),
+			'shape_a'           => array( 143, 109, 255 ),
+			'shape_a_alpha'     => 92,
+			'shape_b'           => array( 142, 232, 188 ),
+			'shape_b_alpha'     => 104,
+			'line'              => array( 220, 214, 246 ),
+			'hero_shape_w'      => 560,
+			'hero_shape_h'      => 560,
+			'secondary_shape_w' => 420,
+			'secondary_shape_h' => 420,
+			'title_y'           => 320,
+			'title_size'        => 92,
+			'subtitle_y'        => 405,
+			'body_y'            => 500,
+			'specimen_label_y'  => 620,
+			'specimen_y'        => 720,
+			'specimen_size'     => 46,
+		);
 	}
 
 	/**
