@@ -98,7 +98,8 @@ class KFI_Frontend {
 		$zip_size     = sanitize_text_field( get_post_meta( $post_id, '_kfi_zip_size_human', true ) );
 		$variant_count = absint( get_post_meta( $post_id, '_kfi_variant_count', true ) );
 		$subsets      = get_post_meta( $post_id, '_kfi_subsets', true );
-		$description  = sprintf(
+		$description_meta = sanitize_text_field( get_post_meta( $post_id, '_kfi_font_description', true ) );
+		$description      = $description_meta ? $description_meta : sprintf(
 			'Download %1$s font for free with commercial use guidance, local ZIP package, OFL license file, and on-page live preview.',
 			sanitize_text_field( $font_family )
 		);

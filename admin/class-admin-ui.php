@@ -28,6 +28,7 @@ class KFI_Admin_UI {
 		add_action( 'admin_menu', array( $this, 'register_menu' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_post_kfi_manual_import', array( $this, 'handle_manual_import' ) );
+		add_action( 'admin_post_kfi_regenerate_posts', array( $this, 'handle_regeneration' ) );
 	}
 
 	/**
@@ -273,6 +274,32 @@ class KFI_Admin_UI {
 	}
 
 	/**
+	 * Handle regeneration actions.
+	 *
+	 * @return void
+	 */
+	public function handle_regeneration() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You are not allowed to perform this action.', 'kreativ-font-ingestor' ) );
+		}
+
+		check_admin_referer( 'kfi_regenerate_posts' );
+
+		$post_id = isset( $_POST['post_id'] ) ? absint( wp_unslash( $_POST['post_id'] ) ) : 0;
+		$limit   = isset( $_POST['limit'] ) ? max( 1, absint( wp_unslash( $_POST['limit'] ) ) ) : 10;
+		$results = $this->plugin->regenerate_imported_posts( $post_id, $limit );
+
+		$query_args = array(
+			'page'           => 'kreativ-font-ingestor',
+			'regenerated'    => $results['regenerated'],
+			'regen_errors'   => count( $results['errors'] ),
+		);
+
+		wp_safe_redirect( add_query_arg( $query_args, admin_url( 'admin.php' ) ) );
+		exit;
+	}
+
+	/**
 	 * Render admin page.
 	 *
 	 * @return void
@@ -306,6 +333,23 @@ class KFI_Admin_UI {
 				</div>
 			<?php endif; ?>
 
+			<?php if ( isset( $_GET['regenerated'] ) ) : ?>
+				<div class="notice notice-success is-dismissible">
+					<p>
+						<?php
+						echo esc_html(
+							sprintf(
+								/* translators: 1: regenerated, 2: errors */
+								__( 'Regeneration completed. Updated: %1$d, Errors: %2$d.', 'kreativ-font-ingestor' ),
+								absint( wp_unslash( $_GET['regenerated'] ) ),
+								absint( wp_unslash( $_GET['regen_errors'] ) )
+							)
+						);
+						?>
+					</p>
+				</div>
+			<?php endif; ?>
+
 			<form method="post" action="options.php">
 				<?php
 				settings_fields( 'kfi_settings_group' );
@@ -322,6 +366,25 @@ class KFI_Admin_UI {
 				<input type="hidden" name="action" value="kfi_manual_import" />
 				<?php wp_nonce_field( 'kfi_manual_import' ); ?>
 				<?php submit_button( __( 'Run Import Now', 'kreativ-font-ingestor' ), 'primary', 'submit', false ); ?>
+			</form>
+
+			<hr />
+
+			<h2><?php esc_html_e( 'Regenerate Imported Posts', 'kreativ-font-ingestor' ); ?></h2>
+			<p><?php esc_html_e( 'Refresh existing imported posts with the latest enrichment data, related-font links, ZIP metadata, and featured images.', 'kreativ-font-ingestor' ); ?></p>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-bottom:16px;">
+				<input type="hidden" name="action" value="kfi_regenerate_posts" />
+				<?php wp_nonce_field( 'kfi_regenerate_posts' ); ?>
+				<label for="kfi-regenerate-post-id" style="display:block;font-weight:600;margin-bottom:4px;"><?php esc_html_e( 'Single Post ID', 'kreativ-font-ingestor' ); ?></label>
+				<input id="kfi-regenerate-post-id" type="number" min="1" name="post_id" value="" />
+				<?php submit_button( __( 'Regenerate This Post', 'kreativ-font-ingestor' ), 'secondary', 'submit', false, array( 'style' => 'margin-left:8px;' ) ); ?>
+			</form>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="kfi_regenerate_posts" />
+				<?php wp_nonce_field( 'kfi_regenerate_posts' ); ?>
+				<label for="kfi-regenerate-limit" style="display:block;font-weight:600;margin-bottom:4px;"><?php esc_html_e( 'Recent Posts Limit', 'kreativ-font-ingestor' ); ?></label>
+				<input id="kfi-regenerate-limit" type="number" min="1" max="100" name="limit" value="10" />
+				<?php submit_button( __( 'Regenerate Recent Imported Posts', 'kreativ-font-ingestor' ), 'secondary', 'submit', false, array( 'style' => 'margin-left:8px;' ) ); ?>
 			</form>
 
 			<hr />

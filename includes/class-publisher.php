@@ -71,8 +71,6 @@ class KFI_Publisher {
 			return new WP_Error( 'kfi_template_missing', 'Post template file is missing.' );
 		}
 
-		require_once $template;
-
 		$category_id = $this->ensure_category( $settings );
 		$tag_ids     = $this->ensure_tags( $font_name, $font );
 
@@ -99,29 +97,98 @@ class KFI_Publisher {
 			wp_set_post_terms( $post_id, $tag_ids, 'post_tag', true );
 		}
 
-		$taxonomy_result = $this->assign_font_hierarchy( $post_id, $font, $settings );
+		$sync = $this->sync_post_data( $post_id, $font, $download, $zip_file, $settings );
 
-		update_post_meta( $post_id, '_kfi_zip_url', esc_url_raw( $zip_file['zip_url'] ) );
-		update_post_meta( $post_id, '_kfi_font_family', $font_name );
-		update_post_meta( $post_id, '_kfi_license', 'SIL Open Font License 1.1' );
-		update_post_meta( $post_id, '_kfi_license_source_url', esc_url_raw( $download['license_source_url'] ) );
-		update_post_meta( $post_id, '_kfi_variant_count', count( $download['files'] ) );
-		update_post_meta( $post_id, '_kfi_variants', wp_list_pluck( $download['files'], 'variant' ) );
-		update_post_meta( $post_id, '_kfi_subsets', isset( $font['subsets'] ) && is_array( $font['subsets'] ) ? array_map( 'sanitize_text_field', $font['subsets'] ) : array() );
-		update_post_meta( $post_id, '_kfi_font_category', isset( $font['category'] ) ? sanitize_text_field( $font['category'] ) : '' );
-		update_post_meta( $post_id, '_kfi_zip_size', isset( $zip_file['zip_size'] ) ? (int) $zip_file['zip_size'] : 0 );
-		update_post_meta( $post_id, '_kfi_zip_size_human', size_format( isset( $zip_file['zip_size'] ) ? (int) $zip_file['zip_size'] : 0, 2 ) );
-		update_post_meta( $post_id, '_kfi_package_file_count', count( $download['files'] ) + 2 );
-		$preview_font = $this->get_preview_font_data( $download['files'] );
-		update_post_meta( $post_id, '_kfi_preview_font_url', esc_url_raw( $preview_font['url'] ) );
-		update_post_meta( $post_id, '_kfi_preview_font_format', sanitize_text_field( $preview_font['format'] ) );
-		update_post_meta( $post_id, '_kfi_featured_image_placeholder', 1 );
-		update_post_meta( $post_id, '_kfi_taxonomy_assignment', $taxonomy_result );
+		if ( is_wp_error( $sync ) ) {
+			return $sync;
+		}
+
 		$this->refresh_post_content( $post_id, $font, $download, $zip_file, $settings );
 
 		$this->logger->info( sprintf( 'Created post #%d for %s.', $post_id, $font_name ) );
 
 		return $post_id;
+	}
+
+	/**
+	 * Sync post fields, taxonomy, and meta for a generated font post.
+	 *
+	 * @param int                  $post_id   Post ID.
+	 * @param array<string, mixed> $font      Font data.
+	 * @param array<string, mixed> $download  Download data.
+	 * @param array<string, mixed> $zip_file  ZIP data.
+	 * @param array<string, mixed> $settings  Plugin settings.
+	 * @return true|WP_Error
+	 */
+	public function sync_post_data( $post_id, array $font, array $download, array $zip_file, array $settings ) {
+		$post_id   = absint( $post_id );
+		$font_name = sanitize_text_field( $download['font_name'] );
+		$font_slug = sanitize_title( $font_name );
+
+		if ( ! $post_id ) {
+			return new WP_Error( 'kfi_sync_invalid_post', 'Invalid post ID for sync.' );
+		}
+
+		$post_update = wp_update_post(
+			wp_slash(
+				array(
+					'ID'           => $post_id,
+					'post_title'   => sprintf( '%s Font Free Download (Commercial Use)', $font_name ),
+					'post_excerpt' => sprintf( 'Download %s font for free with commercial use details, licensing, and local ZIP package.', $font_name ),
+					'post_name'    => sanitize_title( $font_name . ' font free download' ),
+				)
+			),
+			true
+		);
+
+		if ( is_wp_error( $post_update ) ) {
+			return $post_update;
+		}
+
+		$this->clear_previous_taxonomy_assignment( $post_id );
+
+		$category_id = $this->ensure_category( $settings );
+		$tag_ids     = $this->ensure_tags( $font_name, $font );
+
+		if ( $category_id ) {
+			wp_set_post_categories( $post_id, array( $category_id ), true );
+		}
+
+		if ( ! empty( $tag_ids ) ) {
+			wp_set_post_terms( $post_id, $tag_ids, 'post_tag', true );
+		}
+
+		$taxonomy_result = $this->assign_font_hierarchy( $post_id, $font, $settings );
+		$preview_font    = $this->get_preview_font_data( $download['files'] );
+		$license_source  = ! empty( $download['license_source_url'] ) ? $download['license_source_url'] : ( ! empty( $font['license_source_url'] ) ? $font['license_source_url'] : '' );
+
+		update_post_meta( $post_id, '_kfi_zip_url', esc_url_raw( $zip_file['zip_url'] ) );
+		update_post_meta( $post_id, '_kfi_font_family', $font_name );
+		update_post_meta( $post_id, '_kfi_font_slug', $font_slug );
+		update_post_meta( $post_id, '_kfi_license', 'SIL Open Font License 1.1' );
+		update_post_meta( $post_id, '_kfi_license_source_url', esc_url_raw( $license_source ) );
+		update_post_meta( $post_id, '_kfi_variant_count', count( $download['files'] ) );
+		update_post_meta( $post_id, '_kfi_variants', ! empty( $font['variants'] ) && is_array( $font['variants'] ) ? array_map( 'sanitize_text_field', $font['variants'] ) : wp_list_pluck( $download['files'], 'variant' ) );
+		update_post_meta( $post_id, '_kfi_subsets', isset( $font['subsets'] ) && is_array( $font['subsets'] ) ? array_map( 'sanitize_text_field', $font['subsets'] ) : array() );
+		update_post_meta( $post_id, '_kfi_font_category', isset( $font['category'] ) ? sanitize_text_field( $font['category'] ) : '' );
+		update_post_meta( $post_id, '_kfi_zip_size', isset( $zip_file['zip_size'] ) ? (int) $zip_file['zip_size'] : 0 );
+		update_post_meta( $post_id, '_kfi_zip_size_human', size_format( isset( $zip_file['zip_size'] ) ? (int) $zip_file['zip_size'] : 0, 2 ) );
+		update_post_meta( $post_id, '_kfi_package_file_count', count( $download['files'] ) + 2 );
+		update_post_meta( $post_id, '_kfi_preview_font_url', esc_url_raw( $preview_font['url'] ) );
+		update_post_meta( $post_id, '_kfi_preview_font_format', sanitize_text_field( $preview_font['format'] ) );
+		update_post_meta( $post_id, '_kfi_featured_image_placeholder', get_post_thumbnail_id( $post_id ) ? 0 : 1 );
+		update_post_meta( $post_id, '_kfi_taxonomy_assignment', $taxonomy_result );
+		update_post_meta( $post_id, '_kfi_font_description', ! empty( $font['description_plain'] ) ? wp_strip_all_tags( $font['description_plain'] ) : '' );
+		update_post_meta( $post_id, '_kfi_font_article', ! empty( $font['article_plain'] ) ? wp_strip_all_tags( $font['article_plain'] ) : '' );
+		update_post_meta( $post_id, '_kfi_font_designer', ! empty( $font['designer'] ) ? sanitize_text_field( $font['designer'] ) : '' );
+		update_post_meta( $post_id, '_kfi_font_foundry', ! empty( $font['foundry'] ) ? sanitize_text_field( $font['foundry'] ) : 'Google Fonts' );
+		update_post_meta( $post_id, '_kfi_repo_directory', ! empty( $font['repo_directory'] ) ? sanitize_text_field( $font['repo_directory'] ) : '' );
+		update_post_meta( $post_id, '_kfi_google_fonts_url', ! empty( $font['google_fonts_url'] ) ? esc_url_raw( $font['google_fonts_url'] ) : '' );
+		update_post_meta( $post_id, '_kfi_variable_font', ! empty( $font['is_variable'] ) ? 1 : 0 );
+		update_post_meta( $post_id, '_kfi_variable_axes', ! empty( $font['axes'] ) && is_array( $font['axes'] ) ? $font['axes'] : array() );
+		update_post_meta( $post_id, '_kfi_copyrights', ! empty( $font['copyrights'] ) && is_array( $font['copyrights'] ) ? array_map( 'sanitize_text_field', $font['copyrights'] ) : array() );
+
+		return true;
 	}
 
 	/**
@@ -436,8 +503,15 @@ class KFI_Publisher {
 	 * @return array<int, string>
 	 */
 	private function infer_designers( array $font ) {
+		if ( ! empty( $font['designer_list'] ) && is_array( $font['designer_list'] ) ) {
+			return array_values( array_unique( array_filter( array_map( 'sanitize_text_field', $font['designer_list'] ) ) ) );
+		}
+
 		if ( ! empty( $font['designer'] ) ) {
-			return array( sanitize_text_field( $font['designer'] ) );
+			$parts = preg_split( '/\s*(?:,|&| and )\s*/i', sanitize_text_field( $font['designer'] ) );
+			$parts = is_array( $parts ) ? $parts : array( sanitize_text_field( $font['designer'] ) );
+
+			return array_values( array_unique( array_filter( array_map( 'sanitize_text_field', $parts ) ) ) );
 		}
 
 		return array();
@@ -650,6 +724,24 @@ class KFI_Publisher {
 		);
 
 		return ! empty( $posts[0] ) ? (int) $posts[0] : 0;
+	}
+
+	/**
+	 * Remove previously assigned KFI hierarchy categories before reassignment.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return void
+	 */
+	private function clear_previous_taxonomy_assignment( $post_id ) {
+		$current = get_post_meta( $post_id, '_kfi_taxonomy_assignment', true );
+
+		if ( empty( $current['assigned_terms'] ) || ! is_array( $current['assigned_terms'] ) ) {
+			return;
+		}
+
+		$existing_terms = wp_get_post_categories( $post_id );
+		$remaining      = array_diff( $existing_terms, array_map( 'absint', $current['assigned_terms'] ) );
+		wp_set_post_categories( $post_id, array_map( 'absint', $remaining ), false );
 	}
 
 	/**

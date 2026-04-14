@@ -32,9 +32,10 @@ class KFI_Featured_Image {
 	 * @param int                  $post_id   Post ID.
 	 * @param array<string, mixed> $download  Download data.
 	 * @param array<string, mixed> $font      Font data.
+	 * @param bool                 $force     Force regeneration.
 	 * @return int|WP_Error Attachment ID or error.
 	 */
-	public function generate_for_post( $post_id, array $download, array $font ) {
+	public function generate_for_post( $post_id, array $download, array $font, $force = false ) {
 		$post_id = absint( $post_id );
 
 		if ( ! $post_id ) {
@@ -43,8 +44,12 @@ class KFI_Featured_Image {
 
 		$existing_thumbnail = get_post_thumbnail_id( $post_id );
 
-		if ( $existing_thumbnail ) {
+		if ( $existing_thumbnail && ! $force ) {
 			return (int) $existing_thumbnail;
+		}
+
+		if ( $existing_thumbnail && $force ) {
+			wp_delete_attachment( $existing_thumbnail, true );
 		}
 
 		$paths       = $this->logger->get_upload_paths();

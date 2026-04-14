@@ -149,6 +149,51 @@ class KFI_API {
 	}
 
 	/**
+	 * Fetch companion repository assets for a Google Fonts family.
+	 *
+	 * @param string $family Font family name.
+	 * @return array<string, mixed>|WP_Error
+	 */
+	public function get_repository_bundle( $family ) {
+		$family    = sanitize_text_field( $family );
+		$cache_key = 'kfi_repo_bundle_' . md5( strtolower( $family ) );
+		$cached    = get_transient( $cache_key );
+
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
+		$license_data = $this->get_ofl_license_data( $family );
+
+		if ( is_wp_error( $license_data ) ) {
+			return $license_data;
+		}
+
+		$repo_directory   = dirname( $license_data['repo_path'] );
+		$metadata_url     = $this->license_repo_base . $repo_directory . '/METADATA.pb';
+		$description_url  = $this->license_repo_base . $repo_directory . '/DESCRIPTION.en_us.html';
+		$article_url      = $this->license_repo_base . $repo_directory . '/ARTICLE.en_us.html';
+		$metadata_text    = $this->fetch_optional_text_file( $metadata_url );
+		$description_html = $this->fetch_optional_text_file( $description_url );
+		$article_html     = $this->fetch_optional_text_file( $article_url );
+		$bundle           = array(
+			'license_data'      => $license_data,
+			'repo_directory'    => $repo_directory,
+			'metadata_url'      => $metadata_url,
+			'metadata_text'     => $metadata_text,
+			'description_url'   => $description_url,
+			'description_html'  => $description_html,
+			'article_url'       => $article_url,
+			'article_html'      => $article_html,
+			'google_fonts_url'  => 'https://fonts.google.com/specimen/' . rawurlencode( $family ),
+		);
+
+		set_transient( $cache_key, $bundle, 12 * HOUR_IN_SECONDS );
+
+		return $bundle;
+	}
+
+	/**
 	 * Fetch plain text file from a trusted source.
 	 *
 	 * @param string $url Remote URL.
@@ -177,6 +222,22 @@ class KFI_API {
 		}
 
 		return $body;
+	}
+
+	/**
+	 * Fetch plain text file, but tolerate missing companion assets.
+	 *
+	 * @param string $url Remote URL.
+	 * @return string
+	 */
+	private function fetch_optional_text_file( $url ) {
+		$response = $this->fetch_text_file( $url );
+
+		if ( is_wp_error( $response ) ) {
+			return '';
+		}
+
+		return $response;
 	}
 
 	/**
