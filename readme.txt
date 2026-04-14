@@ -39,6 +39,24 @@ Key features:
 5. Configure the import limit and cron preference.
 6. Run a manual import or allow WP-Cron to ingest fonts automatically.
 
+== Deployment ==
+
+The repository can be deployed directly to a WordPress server with the bundled GitHub Actions workflow in `.github/workflows/deploy-wordpress.yml`.
+
+Required GitHub Actions secrets:
+
+* `WP_SSH_HOST` - SSH hostname for the WordPress server
+* `WP_SSH_PORT` - SSH port, usually `22`
+* `WP_SSH_USER` - SSH username used for deployment
+* `WP_SSH_PRIVATE_KEY` - private key for the deployment user
+* `WP_PLUGIN_TARGET_PATH` - absolute path to the live plugin directory, for example `/var/www/html/wp-content/plugins/kreativ-font-ingestor`
+
+Optional secret:
+
+* `WP_CLI_PATH` - absolute WordPress install path if you want manual workflow runs to activate the plugin with WP-CLI after deployment
+
+The workflow runs on every push to `main`, lints PHP files, builds a clean deploy package, uploads it as an artifact, and then syncs the plugin into the configured WordPress plugin directory over SSH.
+
 == Frequently Asked Questions ==
 
 = Which fonts are imported? =

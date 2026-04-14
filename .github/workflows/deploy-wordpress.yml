@@ -1,0 +1,118 @@
+name: Deploy To WordPress
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      target_path:
+        description: 'Remote plugin directory path'
+        required: false
+        default: ''
+      activate_plugin:
+        description: 'Run wp plugin activate after deploy'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: wordpress-deploy-main
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+
+      - name: Lint plugin PHP files
+        run: |
+          find . \
+            -path './.git' -prune -o \
+            -path './.github' -prune -o \
+            -name '*.php' -print | while read -r file; do
+              php -l "$file"
+            done
+
+      - name: Build deploy directory
+        run: |
+          mkdir -p build/kreativ-font-ingestor
+          rsync -av \
+            --delete \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude 'build/' \
+            --exclude '*.zip' \
+            ./ build/kreativ-font-ingestor/
+
+      - name: Archive deploy package
+        run: |
+          cd build
+          zip -r kreativ-font-ingestor-deploy.zip kreativ-font-ingestor
+
+      - name: Upload deploy artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kreativ-font-ingestor-deploy
+          path: build/kreativ-font-ingestor-deploy.zip
+
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.WP_SSH_PRIVATE_KEY }}
+
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "${{ secrets.WP_SSH_PORT }}" "${{ secrets.WP_SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Resolve remote target path
+        id: target
+        env:
+          INPUT_TARGET_PATH: ${{ github.event.inputs.target_path }}
+          SECRET_TARGET_PATH: ${{ secrets.WP_PLUGIN_TARGET_PATH }}
+        run: |
+          TARGET_PATH="${INPUT_TARGET_PATH:-$SECRET_TARGET_PATH}"
+
+          if [ -z "$TARGET_PATH" ]; then
+            echo "Remote target path is missing."
+            exit 1
+          fi
+
+          echo "target_path=$TARGET_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy plugin files
+        env:
+          WP_HOST: ${{ secrets.WP_SSH_HOST }}
+          WP_PORT: ${{ secrets.WP_SSH_PORT }}
+          WP_USER: ${{ secrets.WP_SSH_USER }}
+          TARGET_PATH: ${{ steps.target.outputs.target_path }}
+        run: |
+          ssh -p "$WP_PORT" "$WP_USER@$WP_HOST" "mkdir -p '$TARGET_PATH'"
+          rsync -avz --delete \
+            -e "ssh -p $WP_PORT" \
+            build/kreativ-font-ingestor/ \
+            "$WP_USER@$WP_HOST:$TARGET_PATH/"
+
+      - name: Optionally activate plugin
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.activate_plugin == 'true' }}
+        env:
+          WP_HOST: ${{ secrets.WP_SSH_HOST }}
+          WP_PORT: ${{ secrets.WP_SSH_PORT }}
+          WP_USER: ${{ secrets.WP_SSH_USER }}
+          WP_CLI_PATH: ${{ secrets.WP_CLI_PATH }}
+        run: |
+          if [ -z "$WP_CLI_PATH" ]; then
+            echo "WP_CLI_PATH secret is required to activate the plugin."
+            exit 1
+          fi
+
+          ssh -p "$WP_PORT" "$WP_USER@$WP_HOST" "cd '$WP_CLI_PATH' && wp plugin activate kreativ-font-ingestor || true"
