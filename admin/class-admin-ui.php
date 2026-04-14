@@ -1,0 +1,304 @@
+<?php
+/**
+ * Admin UI controller.
+ *
+ * @package KreativFontIngestor
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+class KFI_Admin_UI {
+	/**
+	 * Plugin instance.
+	 *
+	 * @var KFI_Plugin
+	 */
+	private $plugin;
+
+	/**
+	 * Constructor.
+	 *
+	 * @param KFI_Plugin $plugin Plugin.
+	 */
+	public function __construct( KFI_Plugin $plugin ) {
+		$this->plugin = $plugin;
+
+		add_action( 'admin_menu', array( $this, 'register_menu' ) );
+		add_action( 'admin_init', array( $this, 'register_settings' ) );
+		add_action( 'admin_post_kfi_manual_import', array( $this, 'handle_manual_import' ) );
+	}
+
+	/**
+	 * Register admin menu.
+	 *
+	 * @return void
+	 */
+	public function register_menu() {
+		add_menu_page(
+			__( 'Kreativ Fonts', 'kreativ-font-ingestor' ),
+			__( 'Kreativ Fonts', 'kreativ-font-ingestor' ),
+			'manage_options',
+			'kreativ-font-ingestor',
+			array( $this, 'render_page' ),
+			'dashicons-editor-textcolor',
+			58
+		);
+	}
+
+	/**
+	 * Register plugin settings.
+	 *
+	 * @return void
+	 */
+	public function register_settings() {
+		register_setting(
+			'kfi_settings_group',
+			KFI_OPTION_SETTINGS,
+			array(
+				'type'              => 'array',
+				'sanitize_callback' => array( $this, 'sanitize_settings' ),
+				'default'           => $this->plugin->get_settings(),
+			)
+		);
+
+		add_settings_section(
+			'kfi_main_section',
+			__( 'Font Import Settings', 'kreativ-font-ingestor' ),
+			'__return_false',
+			'kfi_settings'
+		);
+
+		add_settings_field(
+			'api_key',
+			__( 'Google Fonts API Key', 'kreativ-font-ingestor' ),
+			array( $this, 'render_api_key_field' ),
+			'kfi_settings',
+			'kfi_main_section'
+		);
+
+		add_settings_field(
+			'cron_enabled',
+			__( 'Cron Import', 'kreativ-font-ingestor' ),
+			array( $this, 'render_cron_field' ),
+			'kfi_settings',
+			'kfi_main_section'
+		);
+
+		add_settings_field(
+			'import_limit',
+			__( 'Import Limit Per Run', 'kreativ-font-ingestor' ),
+			array( $this, 'render_import_limit_field' ),
+			'kfi_settings',
+			'kfi_main_section'
+		);
+
+		add_settings_field(
+			'affiliate_html',
+			__( 'Affiliate Placeholder HTML', 'kreativ-font-ingestor' ),
+			array( $this, 'render_affiliate_field' ),
+			'kfi_settings',
+			'kfi_main_section'
+		);
+
+		add_settings_field(
+			'taxonomy_parents',
+			__( 'Category Parent Names', 'kreativ-font-ingestor' ),
+			array( $this, 'render_taxonomy_parents_field' ),
+			'kfi_settings',
+			'kfi_main_section'
+		);
+	}
+
+	/**
+	 * Sanitize settings input.
+	 *
+	 * @param array<string, mixed> $input Raw input.
+	 * @return array<string, mixed>
+	 */
+	public function sanitize_settings( $input ) {
+		return array(
+			'api_key'                  => isset( $input['api_key'] ) ? sanitize_text_field( $input['api_key'] ) : '',
+			'cron_enabled'             => isset( $input['cron_enabled'] ) ? 1 : 0,
+			'import_limit'             => isset( $input['import_limit'] ) ? max( 1, absint( $input['import_limit'] ) ) : 10,
+			'category_id'              => 0,
+			'affiliate_html'           => isset( $input['affiliate_html'] ) ? wp_kses_post( $input['affiliate_html'] ) : '',
+			'taxonomy_parent_fonts'    => isset( $input['taxonomy_parent_fonts'] ) ? sanitize_text_field( $input['taxonomy_parent_fonts'] ) : 'Fonts',
+			'taxonomy_parent_designer' => isset( $input['taxonomy_parent_designer'] ) ? sanitize_text_field( $input['taxonomy_parent_designer'] ) : 'Designer',
+			'taxonomy_parent_foundry'  => isset( $input['taxonomy_parent_foundry'] ) ? sanitize_text_field( $input['taxonomy_parent_foundry'] ) : 'Foundry',
+			'taxonomy_parent_style'    => isset( $input['taxonomy_parent_style'] ) ? sanitize_text_field( $input['taxonomy_parent_style'] ) : 'Font Style',
+			'taxonomy_parent_mood'     => isset( $input['taxonomy_parent_mood'] ) ? sanitize_text_field( $input['taxonomy_parent_mood'] ) : 'Font Mood',
+			'taxonomy_parent_use_case' => isset( $input['taxonomy_parent_use_case'] ) ? sanitize_text_field( $input['taxonomy_parent_use_case'] ) : 'Font Use Case',
+		);
+	}
+
+	/**
+	 * Render API key field.
+	 *
+	 * @return void
+	 */
+	public function render_api_key_field() {
+		$settings = $this->plugin->get_settings();
+		?>
+		<input type="text" name="<?php echo esc_attr( KFI_OPTION_SETTINGS ); ?>[api_key]" value="<?php echo esc_attr( $settings['api_key'] ); ?>" class="regular-text" autocomplete="off" />
+		<p class="description"><?php esc_html_e( 'Create an API key with access to the Google Fonts Developer API.', 'kreativ-font-ingestor' ); ?></p>
+		<?php
+	}
+
+	/**
+	 * Render cron field.
+	 *
+	 * @return void
+	 */
+	public function render_cron_field() {
+		$settings = $this->plugin->get_settings();
+		?>
+		<label for="kfi-cron-enabled">
+			<input id="kfi-cron-enabled" type="checkbox" name="<?php echo esc_attr( KFI_OPTION_SETTINGS ); ?>[cron_enabled]" value="1" <?php checked( ! empty( $settings['cron_enabled'] ) ); ?> />
+			<?php esc_html_e( 'Enable automatic imports every 6 hours.', 'kreativ-font-ingestor' ); ?>
+		</label>
+		<?php
+	}
+
+	/**
+	 * Render limit field.
+	 *
+	 * @return void
+	 */
+	public function render_import_limit_field() {
+		$settings = $this->plugin->get_settings();
+		?>
+		<input type="number" min="1" max="50" name="<?php echo esc_attr( KFI_OPTION_SETTINGS ); ?>[import_limit]" value="<?php echo esc_attr( $settings['import_limit'] ); ?>" />
+		<p class="description"><?php esc_html_e( 'Batch size for manual and scheduled imports.', 'kreativ-font-ingestor' ); ?></p>
+		<?php
+	}
+
+	/**
+	 * Render affiliate field.
+	 *
+	 * @return void
+	 */
+	public function render_affiliate_field() {
+		$settings = $this->plugin->get_settings();
+		?>
+		<textarea name="<?php echo esc_attr( KFI_OPTION_SETTINGS ); ?>[affiliate_html]" rows="5" class="large-text code"><?php echo esc_textarea( $settings['affiliate_html'] ); ?></textarea>
+		<p class="description"><?php esc_html_e( 'Optional monetization block appended to generated font posts.', 'kreativ-font-ingestor' ); ?></p>
+		<?php
+	}
+
+	/**
+	 * Render taxonomy parent category fields.
+	 *
+	 * @return void
+	 */
+	public function render_taxonomy_parents_field() {
+		$settings = $this->plugin->get_settings();
+		$fields   = array(
+			'taxonomy_parent_fonts'    => __( 'Fonts', 'kreativ-font-ingestor' ),
+			'taxonomy_parent_designer' => __( 'Designer', 'kreativ-font-ingestor' ),
+			'taxonomy_parent_foundry'  => __( 'Foundry', 'kreativ-font-ingestor' ),
+			'taxonomy_parent_style'    => __( 'Font Style', 'kreativ-font-ingestor' ),
+			'taxonomy_parent_mood'     => __( 'Font Mood', 'kreativ-font-ingestor' ),
+			'taxonomy_parent_use_case' => __( 'Font Use Case', 'kreativ-font-ingestor' ),
+		);
+		?>
+		<div style="display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:12px;max-width:720px;">
+			<?php foreach ( $fields as $key => $label ) : ?>
+				<label>
+					<span style="display:block;font-weight:600;margin-bottom:4px;"><?php echo esc_html( $label ); ?></span>
+					<input type="text" class="regular-text" name="<?php echo esc_attr( KFI_OPTION_SETTINGS ); ?>[<?php echo esc_attr( $key ); ?>]" value="<?php echo esc_attr( $settings[ $key ] ); ?>" />
+				</label>
+			<?php endforeach; ?>
+		</div>
+		<p class="description"><?php esc_html_e( 'These configurable parent categories are used when assigning imported fonts into your hierarchical catalog structure.', 'kreativ-font-ingestor' ); ?></p>
+		<?php
+	}
+
+	/**
+	 * Handle manual import action.
+	 *
+	 * @return void
+	 */
+	public function handle_manual_import() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You are not allowed to perform this action.', 'kreativ-font-ingestor' ) );
+		}
+
+		check_admin_referer( 'kfi_manual_import' );
+
+		$settings = $this->plugin->get_settings();
+		$limit    = isset( $settings['import_limit'] ) ? absint( $settings['import_limit'] ) : 10;
+		$results  = $this->plugin->run_import( $limit, true );
+
+		$query_args = array(
+			'page'     => 'kreativ-font-ingestor',
+			'imported' => $results['imported'],
+			'skipped'  => $results['skipped'],
+			'errors'   => count( $results['errors'] ),
+		);
+
+		wp_safe_redirect( add_query_arg( $query_args, admin_url( 'admin.php' ) ) );
+		exit;
+	}
+
+	/**
+	 * Render admin page.
+	 *
+	 * @return void
+	 */
+	public function render_page() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		$logger = $this->plugin->get_logger();
+		$logs   = $logger->get_logs();
+		?>
+		<div class="wrap">
+			<h1><?php esc_html_e( 'Kreativ Font Ingestor', 'kreativ-font-ingestor' ); ?></h1>
+
+			<?php if ( isset( $_GET['imported'] ) ) : ?>
+				<div class="notice notice-success is-dismissible">
+					<p>
+						<?php
+						echo esc_html(
+							sprintf(
+								/* translators: 1: imported, 2: skipped, 3: errors */
+								__( 'Import completed. Imported: %1$d, Skipped: %2$d, Errors: %3$d.', 'kreativ-font-ingestor' ),
+								absint( wp_unslash( $_GET['imported'] ) ),
+								absint( wp_unslash( $_GET['skipped'] ) ),
+								absint( wp_unslash( $_GET['errors'] ) )
+							)
+						);
+						?>
+					</p>
+				</div>
+			<?php endif; ?>
+
+			<form method="post" action="options.php">
+				<?php
+				settings_fields( 'kfi_settings_group' );
+				do_settings_sections( 'kfi_settings' );
+				submit_button( __( 'Save Settings', 'kreativ-font-ingestor' ) );
+				?>
+			</form>
+
+			<hr />
+
+			<h2><?php esc_html_e( 'Manual Import', 'kreativ-font-ingestor' ); ?></h2>
+			<p><?php esc_html_e( 'Import the next batch of unprocessed fonts immediately.', 'kreativ-font-ingestor' ); ?></p>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="kfi_manual_import" />
+				<?php wp_nonce_field( 'kfi_manual_import' ); ?>
+				<?php submit_button( __( 'Run Import Now', 'kreativ-font-ingestor' ), 'primary', 'submit', false ); ?>
+			</form>
+
+			<hr />
+
+			<h2><?php esc_html_e( 'Logs', 'kreativ-font-ingestor' ); ?></h2>
+			<textarea class="large-text code" rows="18" readonly><?php echo esc_textarea( $logs ); ?></textarea>
+		</div>
+		<?php
+	}
+}
