@@ -52,8 +52,9 @@ class KFI_Frontend {
 		);
 
 		$config = array(
-			'fontFamily'   => sanitize_text_field( $font_family ),
-			'previewUrl'   => esc_url_raw( get_post_meta( $post_id, '_kfi_preview_font_url', true ) ),
+			'fontFamily'    => sanitize_text_field( $font_family ),
+			'previewAlias'  => 'KFI Preview ' . absint( $post_id ),
+			'previewUrl'    => esc_url_raw( get_post_meta( $post_id, '_kfi_preview_font_url', true ) ),
 			'previewFormat' => sanitize_text_field( get_post_meta( $post_id, '_kfi_preview_font_format', true ) ),
 		);
 
@@ -62,16 +63,18 @@ class KFI_Frontend {
 		$preview_url = $config['previewUrl'];
 
 		if ( ! empty( $preview_url ) ) {
-			$src = sprintf( 'url("%1$s")', esc_url_raw( $preview_url ) );
+			$src_parts = array(
+				sprintf( 'url("%1$s")', esc_url_raw( $preview_url ) ),
+			);
 
 			if ( ! empty( $config['previewFormat'] ) ) {
-				$src .= sprintf( ' format("%s")', esc_attr( $config['previewFormat'] ) );
+				$src_parts[] = sprintf( 'url("%1$s") format("%2$s")', esc_url_raw( $preview_url ), esc_attr( $config['previewFormat'] ) );
 			}
 
 			$font_face = sprintf(
-				'@font-face{font-family:"%1$s";src:%2$s;font-display:swap;}',
-				esc_attr( $config['fontFamily'] ),
-				$src
+				'@font-face{font-family:"%1$s";src:%2$s;font-display:swap;font-style:normal;font-weight:400;}',
+				esc_attr( $config['previewAlias'] ),
+				implode( ',', $src_parts )
 			);
 			wp_add_inline_style( 'kfi-frontend', $font_face );
 		}

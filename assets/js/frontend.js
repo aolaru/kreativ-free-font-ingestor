@@ -40,8 +40,10 @@ if (previewSize && previewSample && previewReadout) {
 	syncPreviewSize();
 }
 
-if (fontFamilyTargets.length && config.fontFamily) {
+const appliedFontFamily = config.previewAlias || config.fontFamily || '';
+
+if (fontFamilyTargets.length && appliedFontFamily) {
 	fontFamilyTargets.forEach((element) => {
-		element.style.fontFamily = `"${config.fontFamily}", sans-serif`;
+		element.style.fontFamily = `"${appliedFontFamily}", sans-serif`;
 	});
 }
