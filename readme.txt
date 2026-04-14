@@ -45,11 +45,11 @@ The repository can be deployed directly to a WordPress server with the bundled G
 
 Required GitHub Actions secrets:
 
-* `WP_SFTP_HOST` - SFTP hostname for the WordPress server
-* `WP_SFTP_PORT` - SFTP port, usually `22`
-* `WP_SFTP_USER` - SFTP username used for deployment
-* `WP_SFTP_PASSWORD` - SFTP password for the deployment user
-* `WP_PLUGIN_TARGET_PATH` - absolute path to the live plugin directory, for example `/var/www/html/wp-content/plugins/kreativ-font-ingestor`
+* `WP_SSH_HOST` - SFTP/SSH hostname for the WordPress server
+* `WP_SSH_PORT` - SFTP port, usually `22`
+* `WP_SSH_USER` - SFTP username used for deployment
+* `WP_SSH_PASSWORD` - SFTP password for the deployment user
+* `WP_REMOTE_PATH` - absolute path to the live plugin directory, for example `/var/www/html/wp-content/plugins/kreativ-font-ingestor`
 
 The workflow runs on every push to `main`, lints PHP files, builds a clean deploy package, uploads it as an artifact, and then mirrors the plugin into the configured WordPress plugin directory over SFTP.
 

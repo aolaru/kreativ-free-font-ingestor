@@ -64,16 +64,46 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y lftp
 
+      - name: Resolve SFTP connection settings
+        id: sftp
+        env:
+          SFTP_HOST: ${{ secrets.WP_SSH_HOST }}
+          SFTP_PORT: ${{ secrets.WP_SSH_PORT }}
+          SFTP_USER: ${{ secrets.WP_SSH_USER }}
+          SFTP_PASSWORD: ${{ secrets.WP_SSH_PASSWORD }}
+        run: |
+          PORT="${SFTP_PORT:-22}"
+
+          if [ -z "$SFTP_HOST" ]; then
+            echo "Missing required secret: WP_SSH_HOST"
+            exit 1
+          fi
+
+          if [ -z "$SFTP_USER" ]; then
+            echo "Missing required secret: WP_SSH_USER"
+            exit 1
+          fi
+
+          if [ -z "$SFTP_PASSWORD" ]; then
+            echo "Missing required secret: WP_SSH_PASSWORD"
+            exit 1
+          fi
+
+          echo "host=$SFTP_HOST" >> "$GITHUB_OUTPUT"
+          echo "port=$PORT" >> "$GITHUB_OUTPUT"
+          echo "user=$SFTP_USER" >> "$GITHUB_OUTPUT"
+          echo "password=$SFTP_PASSWORD" >> "$GITHUB_OUTPUT"
+
       - name: Add server to known_hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -p "${{ secrets.WP_SFTP_PORT }}" "${{ secrets.WP_SFTP_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -p "${{ steps.sftp.outputs.port }}" "${{ steps.sftp.outputs.host }}" >> ~/.ssh/known_hosts
 
       - name: Resolve remote target path
         id: target
         env:
           INPUT_TARGET_PATH: ${{ github.event.inputs.target_path }}
-          SECRET_TARGET_PATH: ${{ secrets.WP_PLUGIN_TARGET_PATH }}
+          SECRET_TARGET_PATH: ${{ secrets.WP_REMOTE_PATH }}
         run: |
           TARGET_PATH="${INPUT_TARGET_PATH:-$SECRET_TARGET_PATH}"
 
@@ -86,17 +116,12 @@ jobs:
 
       - name: Deploy plugin files
         env:
-          WP_HOST: ${{ secrets.WP_SFTP_HOST }}
-          WP_PORT: ${{ secrets.WP_SFTP_PORT }}
-          WP_USER: ${{ secrets.WP_SFTP_USER }}
-          WP_PASSWORD: ${{ secrets.WP_SFTP_PASSWORD }}
+          WP_HOST: ${{ steps.sftp.outputs.host }}
+          WP_PORT: ${{ steps.sftp.outputs.port }}
+          WP_USER: ${{ steps.sftp.outputs.user }}
+          WP_PASSWORD: ${{ steps.sftp.outputs.password }}
           TARGET_PATH: ${{ steps.target.outputs.target_path }}
         run: |
-          if [ -z "$WP_HOST" ] || [ -z "$WP_PORT" ] || [ -z "$WP_USER" ] || [ -z "$WP_PASSWORD" ]; then
-            echo "One or more required SFTP secrets are missing."
-            exit 1
-          fi
-
           lftp -u "$WP_USER","$WP_PASSWORD" "sftp://$WP_HOST:$WP_PORT" <<EOF
           set sftp:auto-confirm yes
           mkdir -p "$TARGET_PATH"
