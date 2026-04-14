@@ -10,11 +10,6 @@ on:
         description: 'Remote plugin directory path'
         required: false
         default: ''
-      activate_plugin:
-        description: 'Run wp plugin activate after deploy'
-        required: false
-        type: boolean
-        default: false
 
 concurrency:
   group: wordpress-deploy-main
@@ -64,15 +59,15 @@ jobs:
           name: kreativ-font-ingestor-deploy
           path: build/kreativ-font-ingestor-deploy.zip
 
-      - name: Start SSH agent
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.WP_SSH_PRIVATE_KEY }}
+      - name: Install lftp
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lftp
 
       - name: Add server to known_hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -p "${{ secrets.WP_SSH_PORT }}" "${{ secrets.WP_SSH_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -p "${{ secrets.WP_SFTP_PORT }}" "${{ secrets.WP_SFTP_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Resolve remote target path
         id: target
@@ -91,28 +86,20 @@ jobs:
 
       - name: Deploy plugin files
         env:
-          WP_HOST: ${{ secrets.WP_SSH_HOST }}
-          WP_PORT: ${{ secrets.WP_SSH_PORT }}
-          WP_USER: ${{ secrets.WP_SSH_USER }}
+          WP_HOST: ${{ secrets.WP_SFTP_HOST }}
+          WP_PORT: ${{ secrets.WP_SFTP_PORT }}
+          WP_USER: ${{ secrets.WP_SFTP_USER }}
+          WP_PASSWORD: ${{ secrets.WP_SFTP_PASSWORD }}
           TARGET_PATH: ${{ steps.target.outputs.target_path }}
         run: |
-          ssh -p "$WP_PORT" "$WP_USER@$WP_HOST" "mkdir -p '$TARGET_PATH'"
-          rsync -avz --delete \
-            -e "ssh -p $WP_PORT" \
-            build/kreativ-font-ingestor/ \
-            "$WP_USER@$WP_HOST:$TARGET_PATH/"
-
-      - name: Optionally activate plugin
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.activate_plugin == 'true' }}
-        env:
-          WP_HOST: ${{ secrets.WP_SSH_HOST }}
-          WP_PORT: ${{ secrets.WP_SSH_PORT }}
-          WP_USER: ${{ secrets.WP_SSH_USER }}
-          WP_CLI_PATH: ${{ secrets.WP_CLI_PATH }}
-        run: |
-          if [ -z "$WP_CLI_PATH" ]; then
-            echo "WP_CLI_PATH secret is required to activate the plugin."
+          if [ -z "$WP_HOST" ] || [ -z "$WP_PORT" ] || [ -z "$WP_USER" ] || [ -z "$WP_PASSWORD" ]; then
+            echo "One or more required SFTP secrets are missing."
             exit 1
           fi
 
-          ssh -p "$WP_PORT" "$WP_USER@$WP_HOST" "cd '$WP_CLI_PATH' && wp plugin activate kreativ-font-ingestor || true"
+          lftp -u "$WP_USER","$WP_PASSWORD" "sftp://$WP_HOST:$WP_PORT" <<EOF
+          set sftp:auto-confirm yes
+          mkdir -p "$TARGET_PATH"
+          mirror -R --delete --verbose build/kreativ-font-ingestor "$TARGET_PATH"
+          bye
+          EOF
