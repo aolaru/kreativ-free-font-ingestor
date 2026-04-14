@@ -104,10 +104,11 @@ if ( ! function_exists( 'kfi_render_post_template' ) ) {
 	 * @param array<string, mixed> $data Template data.
 	 * @return string
 	 */
-	function kfi_render_post_template( array $data ) {
-		$font        = $data['font'];
-		$download    = $data['download'];
-		$zip         = $data['zip'];
+		function kfi_render_post_template( array $data ) {
+			$post_id      = isset( $data['post_id'] ) ? absint( $data['post_id'] ) : 0;
+			$font        = $data['font'];
+			$download    = $data['download'];
+			$zip         = $data['zip'];
 		$affiliate   = isset( $data['affiliate'] ) ? $data['affiliate'] : '';
 		$font_name   = sanitize_text_field( $download['font_name'] );
 		$category    = isset( $font['category'] ) ? sanitize_text_field( $font['category'] ) : 'display';
@@ -117,7 +118,7 @@ if ( ! function_exists( 'kfi_render_post_template' ) ) {
 		$variant_count = count( $download['files'] );
 		$zip_size      = ! empty( $zip['zip_size'] ) ? size_format( (int) $zip['zip_size'], 2 ) : '';
 		$includes      = sprintf( '%d font files, OFL.txt, and metadata.json', $variant_count );
-		$featured_image_side = get_the_post_thumbnail( get_the_ID(), 'large', array( 'class' => 'kfi-featured-side-image' ) );
+			$featured_image_side = $post_id ? get_the_post_thumbnail( $post_id, 'large', array( 'class' => 'kfi-featured-side-image' ) ) : '';
 		$description   = sprintf( '%1$s is a %2$s Google Fonts family available for free download. This package preserves the original font files, includes the required OFL license, and is suitable for editorial, branding, interface, and commercial-use workflows that need clean redistribution records.', $font_name, $category );
 		$use_cases     = sprintf( '%1$s works well for headings, UI labels, social graphics, landing pages, and lightweight brand systems where a reliable %2$s style is needed.', $font_name, $category );
 		$pairing_copy  = sprintf( 'Pair %1$s with a neutral sans serif for product interfaces, or combine it with a higher-contrast display family when you need more hierarchy in editorial layouts.', $font_name );

@@ -75,21 +75,12 @@ class KFI_Publisher {
 
 		$category_id = $this->ensure_category( $settings );
 		$tag_ids     = $this->ensure_tags( $font_name, $font );
-		$content     = kfi_render_post_template(
-			array(
-				'font'        => $font,
-				'download'    => $download,
-				'zip'         => $zip_file,
-				'affiliate'   => isset( $settings['affiliate_html'] ) ? wp_kses_post( $settings['affiliate_html'] ) : '',
-				'category_id' => $category_id,
-			)
-		);
 
 		$postarr = array(
 			'post_type'    => 'post',
 			'post_status'  => 'publish',
 			'post_title'   => sprintf( '%s Font Free Download (Commercial Use)', $font_name ),
-			'post_content' => $content,
+			'post_content' => '',
 			'post_excerpt' => sprintf( 'Download %s font for free with commercial use details, licensing, and local ZIP package.', $font_name ),
 			'post_name'    => sanitize_title( $font_name . ' font free download' ),
 		);
@@ -126,10 +117,51 @@ class KFI_Publisher {
 		update_post_meta( $post_id, '_kfi_preview_font_format', sanitize_text_field( $preview_font['format'] ) );
 		update_post_meta( $post_id, '_kfi_featured_image_placeholder', 1 );
 		update_post_meta( $post_id, '_kfi_taxonomy_assignment', $taxonomy_result );
+		$this->refresh_post_content( $post_id, $font, $download, $zip_file, $settings );
 
 		$this->logger->info( sprintf( 'Created post #%d for %s.', $post_id, $font_name ) );
 
 		return $post_id;
+	}
+
+	/**
+	 * Refresh generated post content using the current post state.
+	 *
+	 * @param int                  $post_id   Post ID.
+	 * @param array<string, mixed> $font      Font data.
+	 * @param array<string, mixed> $download  Download data.
+	 * @param array<string, mixed> $zip_file  ZIP data.
+	 * @param array<string, mixed> $settings  Plugin settings.
+	 * @return int|WP_Error
+	 */
+	public function refresh_post_content( $post_id, array $font, array $download, array $zip_file, array $settings ) {
+		$template = KFI_PLUGIN_DIR . 'templates/post-template.php';
+
+		if ( ! file_exists( $template ) ) {
+			return new WP_Error( 'kfi_template_missing', 'Post template file is missing.' );
+		}
+
+		require_once $template;
+
+		$content = kfi_render_post_template(
+			array(
+				'post_id'     => absint( $post_id ),
+				'font'        => $font,
+				'download'    => $download,
+				'zip'         => $zip_file,
+				'affiliate'   => isset( $settings['affiliate_html'] ) ? wp_kses_post( $settings['affiliate_html'] ) : '',
+			)
+		);
+
+		return wp_update_post(
+			wp_slash(
+				array(
+					'ID'           => absint( $post_id ),
+					'post_content' => $content,
+				)
+			),
+			true
+		);
 	}
 
 	/**

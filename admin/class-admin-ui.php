@@ -95,6 +95,14 @@ class KFI_Admin_UI {
 		);
 
 		add_settings_field(
+			'category_id',
+			__( 'Primary Archive Category', 'kreativ-font-ingestor' ),
+			array( $this, 'render_category_field' ),
+			'kfi_settings',
+			'kfi_main_section'
+		);
+
+		add_settings_field(
 			'affiliate_html',
 			__( 'Affiliate Placeholder HTML', 'kreativ-font-ingestor' ),
 			array( $this, 'render_affiliate_field' ),
@@ -122,7 +130,7 @@ class KFI_Admin_UI {
 			'api_key'                  => isset( $input['api_key'] ) ? sanitize_text_field( $input['api_key'] ) : '',
 			'cron_enabled'             => isset( $input['cron_enabled'] ) ? 1 : 0,
 			'import_limit'             => isset( $input['import_limit'] ) ? max( 1, absint( $input['import_limit'] ) ) : 10,
-			'category_id'              => 0,
+			'category_id'              => isset( $input['category_id'] ) ? absint( $input['category_id'] ) : 0,
 			'affiliate_html'           => isset( $input['affiliate_html'] ) ? wp_kses_post( $input['affiliate_html'] ) : '',
 			'taxonomy_parent_fonts'    => isset( $input['taxonomy_parent_fonts'] ) ? sanitize_text_field( $input['taxonomy_parent_fonts'] ) : 'Fonts',
 			'taxonomy_parent_designer' => isset( $input['taxonomy_parent_designer'] ) ? sanitize_text_field( $input['taxonomy_parent_designer'] ) : 'Designer',
@@ -171,6 +179,28 @@ class KFI_Admin_UI {
 		?>
 		<input type="number" min="1" max="50" name="<?php echo esc_attr( KFI_OPTION_SETTINGS ); ?>[import_limit]" value="<?php echo esc_attr( $settings['import_limit'] ); ?>" />
 		<p class="description"><?php esc_html_e( 'Batch size for manual and scheduled imports.', 'kreativ-font-ingestor' ); ?></p>
+		<?php
+	}
+
+	/**
+	 * Render primary archive category selector.
+	 *
+	 * @return void
+	 */
+	public function render_category_field() {
+		$settings = $this->plugin->get_settings();
+		wp_dropdown_categories(
+			array(
+				'taxonomy'         => 'category',
+				'name'             => KFI_OPTION_SETTINGS . '[category_id]',
+				'selected'         => absint( $settings['category_id'] ),
+				'show_option_none' => __( 'Use default fallback (Free Fonts)', 'kreativ-font-ingestor' ),
+				'hide_empty'       => false,
+				'orderby'          => 'name',
+			)
+		);
+		?>
+		<p class="description"><?php esc_html_e( 'Choose the main category assigned to imported font posts.', 'kreativ-font-ingestor' ); ?></p>
 		<?php
 	}
 

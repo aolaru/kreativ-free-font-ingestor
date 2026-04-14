@@ -65,6 +65,7 @@ class KFI_Featured_Image {
 				'font_name' => $font_name,
 				'category'  => isset( $font['category'] ) ? sanitize_text_field( $font['category'] ) : 'Sans Serif',
 				'font_path' => $font_path,
+				'subsets'   => isset( $font['subsets'] ) && is_array( $font['subsets'] ) ? array_map( 'sanitize_text_field', $font['subsets'] ) : array( 'latin' ),
 			)
 		);
 
@@ -115,6 +116,7 @@ class KFI_Featured_Image {
 		$mint       = imagecolorallocate( $image, 171, 255, 208 );
 		$white      = imagecolorallocate( $image, 255, 255, 255 );
 		$panel_fill = imagecolorallocatealpha( $image, 255, 255, 255, 16 );
+		$samples    = $this->get_specimen_samples( $data['subsets'], $data['font_name'] );
 
 		for ( $y = 0; $y < $height; $y++ ) {
 			$ratio = $y / max( 1, $height - 1 );
@@ -201,7 +203,7 @@ class KFI_Featured_Image {
 		$this->draw_text(
 			$image,
 			array(
-				'text'      => 'The quick brown fox jumps over the lazy dog',
+				'text'      => $samples['headline'],
 				'x'         => 120,
 				'y'         => 720,
 				'size'      => 46,
@@ -230,7 +232,7 @@ class KFI_Featured_Image {
 		$this->draw_text(
 			$image,
 			array(
-				'text'      => 'Aa',
+				'text'      => $samples['badge'],
 				'x'         => 1316,
 				'y'         => 282,
 				'size'      => 56,
@@ -248,6 +250,66 @@ class KFI_Featured_Image {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Choose subset-aware specimen text for featured image generation.
+	 *
+	 * @param array<int, string> $subsets   Supported subsets.
+	 * @param string             $font_name Font family name.
+	 * @return array<string, string>
+	 */
+	private function get_specimen_samples( array $subsets, $font_name ) {
+		$subset   = 'latin';
+		$priority = array( 'adlam', 'arabic', 'hebrew', 'devanagari', 'bengali', 'greek', 'cyrillic', 'latin-ext', 'latin' );
+
+		foreach ( $priority as $candidate ) {
+			if ( in_array( $candidate, $subsets, true ) ) {
+				$subset = $candidate;
+				break;
+			}
+		}
+
+		$samples = array(
+			'latin' => array(
+				'headline' => sprintf( '%s Aa Bb 123', $font_name ),
+				'badge'    => 'Aa',
+			),
+			'latin-ext' => array(
+				'headline' => sprintf( '%s ÁĂÂȘȚ 123', $font_name ),
+				'badge'    => 'Áă',
+			),
+			'cyrillic' => array(
+				'headline' => 'АБВГД абвгд 123',
+				'badge'    => 'Бб',
+			),
+			'greek' => array(
+				'headline' => 'ΑΒΓΔΕ αβγδε 123',
+				'badge'    => 'Αα',
+			),
+			'arabic' => array(
+				'headline' => 'أبجدية عربية ١٢٣',
+				'badge'    => 'اب',
+			),
+			'hebrew' => array(
+				'headline' => 'אבגדה עברית 123',
+				'badge'    => 'אב',
+			),
+			'devanagari' => array(
+				'headline' => 'देवनागरी नमूना १२३',
+				'badge'    => 'कअ',
+			),
+			'bengali' => array(
+				'headline' => 'বাংলা নমুনা ১২৩',
+				'badge'    => 'অআ',
+			),
+			'adlam' => array(
+				'headline' => '𞤀𞤣𞤤𞤢𞤥 𞥑𞥒𞥓',
+				'badge'    => '𞤀𞤢',
+			),
+		);
+
+		return isset( $samples[ $subset ] ) ? $samples[ $subset ] : $samples['latin'];
 	}
 
 	/**

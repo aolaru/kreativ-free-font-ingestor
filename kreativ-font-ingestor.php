@@ -363,6 +363,13 @@ final class KFI_Plugin {
 				if ( is_wp_error( $featured_image ) ) {
 					$results['errors'][] = sprintf( '%s: %s', $font_family, $featured_image->get_error_message() );
 					$this->logger->error( sprintf( 'Featured image generation failed for %s. %s', $font_family, $featured_image->get_error_message() ) );
+				} else {
+					$refresh_post = $this->publisher->refresh_post_content( $post_id, $font, $download, $zip_file, $settings );
+
+					if ( is_wp_error( $refresh_post ) ) {
+						$results['errors'][] = sprintf( '%s: %s', $font_family, $refresh_post->get_error_message() );
+						$this->logger->error( sprintf( 'Post content refresh failed for %s. %s', $font_family, $refresh_post->get_error_message() ) );
+					}
 				}
 
 				$this->mark_font_imported(
