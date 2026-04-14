@@ -192,7 +192,6 @@ if ( ! function_exists( 'kfi_render_post_template' ) ) {
 		$variant_count = count( $download['files'] );
 		$zip_size      = ! empty( $zip['zip_size'] ) ? size_format( (int) $zip['zip_size'], 2 ) : '';
 		$includes      = sprintf( '%d font files, OFL.txt, and metadata.json', $variant_count );
-		$featured_image_side = $post_id ? get_the_post_thumbnail( $post_id, 'large', array( 'class' => 'kfi-featured-side-image' ) ) : '';
 		$repo_description    = ! empty( $font['description_plain'] ) ? wp_strip_all_tags( $font['description_plain'] ) : '';
 		$article_copy        = ! empty( $font['article_plain'] ) ? wp_strip_all_tags( $font['article_plain'] ) : '';
 		$designer            = ! empty( $font['designer'] ) ? sanitize_text_field( $font['designer'] ) : '';
@@ -244,20 +243,21 @@ if ( ! function_exists( 'kfi_render_post_template' ) ) {
 						<div><strong><?php echo esc_html( ucfirst( $category ) ); ?></strong><span>Style</span></div>
 						<div><strong><?php echo esc_html( (string) $variant_count ); ?></strong><span>Variants</span></div>
 						<div><strong><?php echo esc_html( $zip_size ? $zip_size : 'ZIP Ready' ); ?></strong><span>Package Size</span></div>
+						<div><strong><?php echo esc_html( $subsets ); ?></strong><span>Subsets</span></div>
+						<div><strong>SIL OFL 1.1</strong><span>License</span></div>
+						<div><strong><?php echo esc_html( $zip['zip_name'] ); ?></strong><span>Archive File</span></div>
+						<div><strong><?php echo esc_html( (string) ( $variant_count + 2 ) ); ?></strong><span>Packaged Assets</span></div>
+						<div><strong>Fonts, OFL.txt, metadata.json</strong><span>Local Records</span></div>
+						<?php if ( $google_fonts_url ) : ?>
+							<div><strong><a href="<?php echo esc_url( $google_fonts_url ); ?>" rel="nofollow noopener" target="_blank">View on Google Fonts</a></strong><span>Source Family</span></div>
+						<?php endif; ?>
 					</div>
 					<div class="kfi-inline-cta-row">
 						<a class="button button-primary" href="<?php echo esc_url( $download_url ); ?>" rel="nofollow">Download <?php echo esc_html( $font_name ); ?> ZIP</a>
 						<span class="kfi-inline-note">Includes original files, OFL.txt, and metadata.json</span>
 					</div>
 				</div>
-					<div class="kfi-hero-visual">
-						<?php if ( ! empty( $featured_image_side ) ) : ?>
-							<div class="kfi-hero-image-shell">
-								<?php echo wp_kses_post( $featured_image_side ); ?>
-							</div>
-						<?php endif; ?>
-					</div>
-				</section>
+			</section>
 
 			<section class="kfi-preview-card">
 				<div class="kfi-preview-header">
@@ -271,7 +271,6 @@ if ( ! function_exists( 'kfi_render_post_template' ) ) {
 						<button type="button" class="kfi-preview-preset" data-preview-text="<?php echo esc_attr( $logo_specimen ); ?>">Logo</button>
 					</div>
 				<label class="kfi-control">
-					<span>Preview Text</span>
 					<textarea class="kfi-preview-input" rows="2"><?php echo esc_textarea( $style_specimen ); ?></textarea>
 				</label>
 				<div class="kfi-control-grid">
@@ -300,12 +299,6 @@ if ( ! function_exists( 'kfi_render_post_template' ) ) {
 							<?php endforeach; ?>
 						</div>
 					</div>
-				<div class="kfi-info-grid">
-					<div><span>Style</span><strong><?php echo esc_html( ucfirst( $category ) ); ?></strong></div>
-					<div><span>Variants</span><strong><?php echo esc_html( (string) $variant_count ); ?></strong></div>
-					<div><span>Subsets</span><strong><?php echo esc_html( $subsets ); ?></strong></div>
-					<div><span>License</span><strong>SIL OFL 1.1</strong></div>
-				</div>
 			</section>
 
 			<section class="kfi-description">
@@ -334,29 +327,12 @@ if ( ! function_exists( 'kfi_render_post_template' ) ) {
 				<p><?php echo esc_html( $use_cases ); ?></p>
 				<p><?php echo esc_html( $pairing_copy ); ?></p>
 				<p><?php echo esc_html( $language_copy ); ?></p>
-				<div class="kfi-note-panel">
-					<strong>Commercial use note</strong>
-					<p>This package is prepared for projects that need local archival records. Review the included license carefully, keep the original font naming intact, and retain the license file when redistributing the package.</p>
-				</div>
 			</section>
 
 			<section class="kfi-license">
-				<h2>License</h2>
+				<h2><?php echo esc_html( $font_name ); ?> License</h2>
 				<p>This font package is distributed with the <strong>SIL Open Font License 1.1</strong>. The ZIP archive includes the required <code>OFL.txt</code> file without modification.</p>
 				<p><a href="<?php echo esc_url( $download['license_url'] ); ?>">View OFL.txt</a></p>
-			</section>
-
-			<section class="kfi-package-files">
-				<h2>Package Details</h2>
-				<div class="kfi-info-grid">
-					<div><span>Archive file</span><strong><?php echo esc_html( $zip['zip_name'] ); ?></strong></div>
-					<div><span>Packaged assets</span><strong><?php echo esc_html( (string) ( $variant_count + 2 ) ); ?></strong></div>
-					<div><span>ZIP size</span><strong><?php echo esc_html( $zip_size ? $zip_size : 'Available after ZIP generation' ); ?></strong></div>
-					<div><span>Local records</span><strong>Fonts, OFL.txt, metadata.json</strong></div>
-					<?php if ( $google_fonts_url ) : ?>
-						<div><span>Source family</span><strong><a href="<?php echo esc_url( $google_fonts_url ); ?>" rel="nofollow noopener" target="_blank">View on Google Fonts</a></strong></div>
-					<?php endif; ?>
-				</div>
 			</section>
 
 			<section class="kfi-bottom-cta">
@@ -368,31 +344,6 @@ if ( ! function_exists( 'kfi_render_post_template' ) ) {
 					<a class="button button-primary" href="<?php echo esc_url( $download_url ); ?>" rel="nofollow">Download ZIP Package</a>
 				</p>
 			</section>
-
-			<section class="kfi-faq">
-				<h2><?php echo esc_html( $font_name ); ?> Font FAQ</h2>
-				<h3>Is <?php echo esc_html( $font_name ); ?> free for commercial use?</h3>
-				<p>This package is distributed under the SIL Open Font License 1.1. Commercial usage is generally allowed under that license, but your team should still review the included OFL text before redistribution or modification.</p>
-				<h3>What is included in the download?</h3>
-				<p>The ZIP includes locally stored font files, the required <code>OFL.txt</code> license file, and <code>metadata.json</code> for internal indexing.</p>
-				<h3>Why download a local package instead of linking to Google Fonts directly?</h3>
-				<p>A local package is useful when you need archive-ready assets, offline review, CMS uploads, or a distribution workflow that keeps the license alongside the font files.</p>
-			</section>
-
-			<?php if ( ! empty( $related_posts ) ) : ?>
-				<section class="kfi-related-fonts">
-					<h2>Explore Related Fonts</h2>
-					<div class="kfi-specimen-grid">
-						<?php foreach ( $related_posts as $related_post ) : ?>
-							<a class="kfi-specimen-card kfi-related-card" href="<?php echo esc_url( get_permalink( $related_post ) ); ?>">
-								<p class="kfi-specimen-label"><?php echo esc_html( get_post_meta( $related_post->ID, '_kfi_font_category', true ) ? ucfirst( get_post_meta( $related_post->ID, '_kfi_font_category', true ) ) : 'Font' ); ?></p>
-								<p class="kfi-specimen-headline"><?php echo esc_html( get_post_meta( $related_post->ID, '_kfi_font_family', true ) ? get_post_meta( $related_post->ID, '_kfi_font_family', true ) : get_the_title( $related_post ) ); ?></p>
-								<p class="kfi-specimen-body"><?php echo esc_html( get_post_meta( $related_post->ID, '_kfi_font_description', true ) ? wp_trim_words( get_post_meta( $related_post->ID, '_kfi_font_description', true ), 18 ) : get_the_title( $related_post ) ); ?></p>
-							</a>
-						<?php endforeach; ?>
-					</div>
-				</section>
-			<?php endif; ?>
 
 			<?php if ( $show_affiliate ) : ?>
 				<section class="kfi-affiliate">

@@ -56,7 +56,7 @@
 .kfi-info-grid {
 	display: grid;
 	gap: 0.9rem;
-	grid-template-columns: repeat(3, minmax(0, 1fr));
+	grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .kfi-info-grid {
@@ -92,11 +92,13 @@
 	display: flex;
 	flex-wrap: wrap;
 	gap: 0.85rem;
+	justify-content: center;
 }
 
 .kfi-inline-note {
 	color: #6c6786;
 	font-size: 0.92rem;
+	text-align: center;
 }
 
 .kfi-hero-mini-specimen {
@@ -207,6 +209,7 @@
 	display: flex;
 	flex-wrap: wrap;
 	gap: 0.65rem;
+	justify-content: center;
 }
 
 .kfi-preview-preset {

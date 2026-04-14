@@ -41,9 +41,42 @@ if (previewSize && previewSample && previewReadout) {
 }
 
 const appliedFontFamily = config.previewAlias || config.fontFamily || '';
+const previewSource = config.previewUrl || '';
+const previewFormat = config.previewFormat || '';
 
-if (fontFamilyTargets.length && appliedFontFamily) {
+const applyPreviewFontFamily = () => {
+	if (!fontFamilyTargets.length || !appliedFontFamily) {
+		return;
+	}
+
 	fontFamilyTargets.forEach((element) => {
 		element.style.fontFamily = `"${appliedFontFamily}", sans-serif`;
 	});
+};
+
+if (previewSource && appliedFontFamily && 'FontFace' in window) {
+	const source = previewFormat
+		? `url("${previewSource}") format("${previewFormat}")`
+		: `url("${previewSource}")`;
+
+	try {
+		const previewFace = new FontFace(appliedFontFamily, source, {
+			style: 'normal',
+			weight: '400',
+		});
+
+		previewFace
+			.load()
+			.then((loadedFace) => {
+				document.fonts.add(loadedFace);
+				applyPreviewFontFamily();
+			})
+			.catch(() => {
+				applyPreviewFontFamily();
+			});
+	} catch (error) {
+		applyPreviewFontFamily();
+	}
+} else {
+	applyPreviewFontFamily();
 }
