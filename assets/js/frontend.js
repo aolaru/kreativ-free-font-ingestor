@@ -55,28 +55,41 @@ const applyPreviewFontFamily = () => {
 };
 
 if (previewSource && appliedFontFamily && 'FontFace' in window) {
-	const source = previewFormat
-		? `url("${previewSource}") format("${previewFormat}")`
-		: `url("${previewSource}")`;
+	const loadPreviewFace = async () => {
+		try {
+			const response = await fetch(previewSource, { credentials: 'same-origin' });
 
-	try {
-		const previewFace = new FontFace(appliedFontFamily, source, {
-			style: 'normal',
-			weight: '400',
-		});
+			if (!response.ok) {
+				throw new Error(`Preview font request failed with ${response.status}`);
+			}
 
-		previewFace
-			.load()
-			.then((loadedFace) => {
-				document.fonts.add(loadedFace);
-				applyPreviewFontFamily();
-			})
-			.catch(() => {
-				applyPreviewFontFamily();
+			const buffer = await response.arrayBuffer();
+			const previewFace = new FontFace(appliedFontFamily, buffer, {
+				style: 'normal',
+				weight: '400',
 			});
-	} catch (error) {
-		applyPreviewFontFamily();
-	}
+			const loadedFace = await previewFace.load();
+			document.fonts.add(loadedFace);
+		} catch (error) {
+			try {
+				const source = previewFormat
+					? `url("${previewSource}") format("${previewFormat}")`
+					: `url("${previewSource}")`;
+				const previewFace = new FontFace(appliedFontFamily, source, {
+					style: 'normal',
+					weight: '400',
+				});
+				const loadedFace = await previewFace.load();
+				document.fonts.add(loadedFace);
+			} catch (fallbackError) {
+				// Keep the page usable even if the preview font cannot be loaded.
+			}
+		} finally {
+			applyPreviewFontFamily();
+		}
+	};
+
+	loadPreviewFace();
 } else {
 	applyPreviewFontFamily();
 }

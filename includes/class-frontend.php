@@ -54,8 +54,9 @@ class KFI_Frontend {
 		$config = array(
 			'fontFamily'    => sanitize_text_field( $font_family ),
 			'previewAlias'  => 'KFI Preview ' . absint( $post_id ),
-			'previewUrl'    => esc_url_raw( get_post_meta( $post_id, '_kfi_preview_font_url', true ) ),
-			'previewFormat' => sanitize_text_field( get_post_meta( $post_id, '_kfi_preview_font_format', true ) ),
+			'previewUrl'    => esc_url_raw( get_post_meta( $post_id, '_kfi_preview_asset_url', true ) ? get_post_meta( $post_id, '_kfi_preview_asset_url', true ) : get_post_meta( $post_id, '_kfi_preview_font_url', true ) ),
+			'previewFormat' => sanitize_text_field( get_post_meta( $post_id, '_kfi_preview_asset_format', true ) ? get_post_meta( $post_id, '_kfi_preview_asset_format', true ) : get_post_meta( $post_id, '_kfi_preview_font_format', true ) ),
+			'previewStatus' => sanitize_text_field( get_post_meta( $post_id, '_kfi_preview_asset_status', true ) ),
 		);
 
 		wp_add_inline_script( 'kfi-frontend', 'window.KFIPreviewConfig = ' . wp_json_encode( $config ) . ';', 'before' );

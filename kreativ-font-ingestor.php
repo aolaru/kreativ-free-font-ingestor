@@ -36,6 +36,7 @@ require_once KFI_PLUGIN_DIR . 'includes/class-api.php';
 require_once KFI_PLUGIN_DIR . 'includes/class-enrichment.php';
 require_once KFI_PLUGIN_DIR . 'includes/class-downloader.php';
 require_once KFI_PLUGIN_DIR . 'includes/class-zipper.php';
+require_once KFI_PLUGIN_DIR . 'includes/class-preview-assets.php';
 require_once KFI_PLUGIN_DIR . 'includes/class-publisher.php';
 require_once KFI_PLUGIN_DIR . 'includes/class-cron.php';
 require_once KFI_PLUGIN_DIR . 'includes/class-featured-image.php';
@@ -85,6 +86,13 @@ final class KFI_Plugin {
 	 * @var KFI_Zipper
 	 */
 	private $zipper;
+
+	/**
+	 * Preview asset manager.
+	 *
+	 * @var KFI_Preview_Assets
+	 */
+	private $preview_assets;
 
 	/**
 	 * Publisher.
@@ -150,6 +158,7 @@ final class KFI_Plugin {
 		$this->enrichment = new KFI_Enrichment( $this->logger, $this->api );
 		$this->downloader = new KFI_Downloader( $this->logger );
 		$this->zipper     = new KFI_Zipper( $this->logger );
+		$this->preview_assets = new KFI_Preview_Assets( $this->logger );
 		$this->publisher  = new KFI_Publisher( $this->logger );
 		$this->cron       = new KFI_Cron( $this );
 		$this->featured_image = new KFI_Featured_Image( $this->logger );
@@ -414,6 +423,14 @@ final class KFI_Plugin {
 					continue;
 				}
 
+				$preview_asset = $this->preview_assets->ensure_preview_asset( $download );
+
+				if ( is_wp_error( $preview_asset ) ) {
+					$this->logger->error( sprintf( 'Preview asset preparation failed for %s. %s', $font_family, $preview_asset->get_error_message() ) );
+				} else {
+					$download['preview_asset'] = $preview_asset;
+				}
+
 				$post_id = $this->publisher->create_post( $font, $download, $zip_file, $settings );
 
 				if ( is_wp_error( $post_id ) ) {
@@ -585,6 +602,12 @@ final class KFI_Plugin {
 
 		if ( is_wp_error( $zip_file ) ) {
 			return $zip_file;
+		}
+
+		$preview_asset = $this->preview_assets->ensure_preview_asset( $download );
+
+		if ( ! is_wp_error( $preview_asset ) ) {
+			$download['preview_asset'] = $preview_asset;
 		}
 
 		$sync = $this->publisher->sync_post_data( $post_id, $font, $download, $zip_file, $settings );

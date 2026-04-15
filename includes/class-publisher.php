@@ -159,7 +159,7 @@ class KFI_Publisher {
 		}
 
 		$taxonomy_result = $this->assign_font_hierarchy( $post_id, $font, $settings );
-		$preview_font    = $this->get_preview_font_data( $download['files'] );
+		$preview_font    = $this->get_preview_font_data( $download );
 		$license_source  = ! empty( $download['license_source_url'] ) ? $download['license_source_url'] : ( ! empty( $font['license_source_url'] ) ? $font['license_source_url'] : '' );
 
 		update_post_meta( $post_id, '_kfi_zip_url', esc_url_raw( $zip_file['zip_url'] ) );
@@ -176,6 +176,12 @@ class KFI_Publisher {
 		update_post_meta( $post_id, '_kfi_package_file_count', count( $download['files'] ) + 2 );
 		update_post_meta( $post_id, '_kfi_preview_font_url', esc_url_raw( $preview_font['url'] ) );
 		update_post_meta( $post_id, '_kfi_preview_font_format', sanitize_text_field( $preview_font['format'] ) );
+		update_post_meta( $post_id, '_kfi_preview_asset_url', esc_url_raw( $preview_font['managed_url'] ) );
+		update_post_meta( $post_id, '_kfi_preview_asset_format', sanitize_text_field( $preview_font['managed_format'] ) );
+		update_post_meta( $post_id, '_kfi_preview_asset_path', sanitize_text_field( $preview_font['managed_path'] ) );
+		update_post_meta( $post_id, '_kfi_preview_asset_source_file', sanitize_text_field( $preview_font['source_file'] ) );
+		update_post_meta( $post_id, '_kfi_preview_asset_status', sanitize_text_field( $preview_font['status'] ) );
+		update_post_meta( $post_id, '_kfi_preview_asset_generated_at', sanitize_text_field( $preview_font['generated_at'] ) );
 		update_post_meta( $post_id, '_kfi_featured_image_placeholder', get_post_thumbnail_id( $post_id ) ? 0 : 1 );
 		update_post_meta( $post_id, '_kfi_taxonomy_assignment', $taxonomy_result );
 		update_post_meta( $post_id, '_kfi_font_description', ! empty( $font['description_plain'] ) ? wp_strip_all_tags( $font['description_plain'] ) : '' );
@@ -758,12 +764,34 @@ class KFI_Publisher {
 	 * @param array<int, array<string, string>> $files Downloaded files.
 	 * @return string
 	 */
-	private function get_preview_font_data( array $files ) {
+	private function get_preview_font_data( array $download ) {
+		$files         = isset( $download['files'] ) && is_array( $download['files'] ) ? $download['files'] : array();
+		$preview_asset = isset( $download['preview_asset'] ) && is_array( $download['preview_asset'] ) ? $download['preview_asset'] : array();
+
+		if ( ! empty( $preview_asset['preview_url'] ) ) {
+			return array(
+				'url'            => $preview_asset['preview_url'],
+				'format'         => ! empty( $preview_asset['format'] ) ? $preview_asset['format'] : '',
+				'managed_url'    => $preview_asset['preview_url'],
+				'managed_format' => ! empty( $preview_asset['format'] ) ? $preview_asset['format'] : '',
+				'managed_path'   => ! empty( $preview_asset['preview_path'] ) ? $preview_asset['preview_path'] : '',
+				'source_file'    => ! empty( $preview_asset['source_file'] ) ? $preview_asset['source_file'] : '',
+				'status'         => ! empty( $preview_asset['status'] ) ? $preview_asset['status'] : '',
+				'generated_at'   => ! empty( $preview_asset['generated_at'] ) ? $preview_asset['generated_at'] : '',
+			);
+		}
+
 		foreach ( $files as $file ) {
 			if ( isset( $file['extension'] ) && 'woff2' === strtolower( $file['extension'] ) ) {
 				return array(
-					'url'    => $file['url'],
-					'format' => 'woff2',
+					'url'            => $file['url'],
+					'format'         => 'woff2',
+					'managed_url'    => '',
+					'managed_format' => '',
+					'managed_path'   => '',
+					'source_file'    => isset( $file['filename'] ) ? $file['filename'] : '',
+					'status'         => 'legacy_fallback',
+					'generated_at'   => '',
 				);
 			}
 		}
@@ -772,14 +800,26 @@ class KFI_Publisher {
 			$extension = isset( $files[0]['extension'] ) ? strtolower( $files[0]['extension'] ) : '';
 
 			return array(
-				'url'    => $files[0]['url'],
-				'format' => in_array( $extension, array( 'woff2', 'woff', 'truetype', 'ttf', 'otf', 'opentype' ), true ) ? $this->normalize_font_format( $extension ) : '',
+				'url'            => $files[0]['url'],
+				'format'         => in_array( $extension, array( 'woff2', 'woff', 'truetype', 'ttf', 'otf', 'opentype' ), true ) ? $this->normalize_font_format( $extension ) : '',
+				'managed_url'    => '',
+				'managed_format' => '',
+				'managed_path'   => '',
+				'source_file'    => isset( $files[0]['filename'] ) ? $files[0]['filename'] : '',
+				'status'         => 'legacy_fallback',
+				'generated_at'   => '',
 			);
 		}
 
 		return array(
-			'url'    => '',
-			'format' => '',
+			'url'            => '',
+			'format'         => '',
+			'managed_url'    => '',
+			'managed_format' => '',
+			'managed_path'   => '',
+			'source_file'    => '',
+			'status'         => '',
+			'generated_at'   => '',
 		);
 	}
 
