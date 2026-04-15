@@ -27,8 +27,25 @@ class KFI_Admin_UI {
 
 		add_action( 'admin_menu', array( $this, 'register_menu' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
+		add_action( 'add_meta_boxes', array( $this, 'register_debug_meta_box' ) );
 		add_action( 'admin_post_kfi_manual_import', array( $this, 'handle_manual_import' ) );
 		add_action( 'admin_post_kfi_regenerate_posts', array( $this, 'handle_regeneration' ) );
+	}
+
+	/**
+	 * Register post-level debug meta box for imported font posts.
+	 *
+	 * @return void
+	 */
+	public function register_debug_meta_box() {
+		add_meta_box(
+			'kfi-preview-debug',
+			__( 'KFI Preview Debug', 'kreativ-font-ingestor' ),
+			array( $this, 'render_debug_meta_box' ),
+			'post',
+			'side',
+			'high'
+		);
 	}
 
 	/**
@@ -469,6 +486,51 @@ class KFI_Admin_UI {
 
 			<h2><?php esc_html_e( 'Logs', 'kreativ-font-ingestor' ); ?></h2>
 			<textarea class="large-text code" rows="18" readonly><?php echo esc_textarea( $logs ); ?></textarea>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render preview debug data for imported font posts.
+	 *
+	 * @param WP_Post $post Current post object.
+	 * @return void
+	 */
+	public function render_debug_meta_box( $post ) {
+		if ( ! $post instanceof WP_Post ) {
+			return;
+		}
+
+		$post_id     = absint( $post->ID );
+		$font_family = get_post_meta( $post_id, '_kfi_font_family', true );
+
+		if ( empty( $font_family ) ) {
+			echo '<p>' . esc_html__( 'This post is not managed by Kreativ Font Ingestor.', 'kreativ-font-ingestor' ) . '</p>';
+			return;
+		}
+
+		$preview_url    = sanitize_text_field( get_post_meta( $post_id, '_kfi_preview_asset_url', true ) );
+		$preview_path   = sanitize_text_field( get_post_meta( $post_id, '_kfi_preview_asset_path', true ) );
+		$preview_status = sanitize_text_field( get_post_meta( $post_id, '_kfi_preview_asset_status', true ) );
+		$source_file    = sanitize_text_field( get_post_meta( $post_id, '_kfi_preview_asset_source_file', true ) );
+		$preview_format = sanitize_text_field( get_post_meta( $post_id, '_kfi_preview_asset_format', true ) );
+		$file_exists    = $preview_path && file_exists( $preview_path );
+		$rows           = array(
+			__( 'Managed preview URL', 'kreativ-font-ingestor' )   => $preview_url ? $preview_url : '—',
+			__( 'Managed preview path', 'kreativ-font-ingestor' )  => $preview_path ? $preview_path : '—',
+			__( 'Managed preview status', 'kreativ-font-ingestor' ) => $preview_status ? $preview_status : '—',
+			__( 'Preview source file', 'kreativ-font-ingestor' )   => $source_file ? $source_file : '—',
+			__( 'Preview format', 'kreativ-font-ingestor' )        => $preview_format ? $preview_format : '—',
+			__( 'File exists on disk', 'kreativ-font-ingestor' )   => $file_exists ? __( 'Yes', 'kreativ-font-ingestor' ) : __( 'No', 'kreativ-font-ingestor' ),
+		);
+		?>
+		<div class="kfi-preview-debug">
+			<?php foreach ( $rows as $label => $value ) : ?>
+				<p style="margin:0 0 10px;">
+					<strong style="display:block;"><?php echo esc_html( $label ); ?></strong>
+					<span style="word-break:break-word;"><?php echo esc_html( $value ); ?></span>
+				</p>
+			<?php endforeach; ?>
 		</div>
 		<?php
 	}
