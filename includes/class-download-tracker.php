@@ -31,25 +31,28 @@ class KFI_Download_Tracker {
 	/**
 	 * Build a tracked download URL for a font post.
 	 *
-	 * @param int    $post_id Post ID.
-	 * @param string $fallback_url Direct ZIP URL fallback.
+	 * @param int    $post_id      Post ID.
+	 * @param string $fallback_url Direct file URL fallback.
+	 * @param string $asset        Asset type.
 	 * @return string
 	 */
-	public function get_download_url( $post_id, $fallback_url = '' ) {
+	public function get_download_url( $post_id, $fallback_url = '', $asset = 'zip' ) {
 		$post_id = absint( $post_id );
+		$asset   = 'webfont' === sanitize_key( $asset ) ? 'webfont' : 'zip';
 
 		if ( ! $post_id ) {
 			return esc_url_raw( $fallback_url );
 		}
 
-		return esc_url_raw(
-			add_query_arg(
-				array(
-					'kfi_download' => $post_id,
-				),
-				home_url( '/' )
-			)
+		$args = array(
+			'kfi_download' => $post_id,
 		);
+
+		if ( 'webfont' === $asset ) {
+			$args['kfi_asset'] = 'webfont';
+		}
+
+		return esc_url_raw( add_query_arg( $args, home_url( '/' ) ) );
 	}
 
 	/**
@@ -62,28 +65,32 @@ class KFI_Download_Tracker {
 			return;
 		}
 
-		$post_id = absint( wp_unslash( $_GET['kfi_download'] ) );
-		$zip_url = esc_url_raw( get_post_meta( $post_id, '_kfi_zip_url', true ) );
+		$post_id    = absint( wp_unslash( $_GET['kfi_download'] ) );
+		$asset      = ! empty( $_GET['kfi_asset'] ) ? sanitize_key( wp_unslash( $_GET['kfi_asset'] ) ) : 'zip';
+		$meta_key   = 'webfont' === $asset ? '_kfi_webfont_zip_url' : '_kfi_zip_url';
+		$asset_url  = esc_url_raw( get_post_meta( $post_id, $meta_key, true ) );
 
-		if ( ! $post_id || '' === $zip_url || 'publish' !== get_post_status( $post_id ) ) {
+		if ( ! $post_id || '' === $asset_url || 'publish' !== get_post_status( $post_id ) ) {
 			wp_die( esc_html__( 'Download could not be started.', 'kreativ-font-ingestor' ), 404 );
 		}
 
-		$this->record_download( $post_id );
-		wp_redirect( $zip_url, 302, 'Kreativ Font Ingestor' );
+		$this->record_download( $post_id, $asset );
+		wp_redirect( $asset_url, 302, 'Kreativ Font Ingestor' );
 		exit;
 	}
 
 	/**
 	 * Record one tracked download event.
 	 *
-	 * @param int $post_id Post ID.
+	 * @param int    $post_id Post ID.
+	 * @param string $asset   Asset type.
 	 * @return void
 	 */
-	public function record_download( $post_id ) {
+	public function record_download( $post_id, $asset = 'zip' ) {
 		global $wpdb;
 
 		$post_id     = absint( $post_id );
+		$asset       = 'webfont' === sanitize_key( $asset ) ? 'webfont' : 'zip';
 		$table_name  = $wpdb->prefix . KFI_TABLE_DOWNLOADS;
 		$font_family = sanitize_text_field( get_post_meta( $post_id, '_kfi_font_family', true ) );
 		$referrer    = isset( $_SERVER['HTTP_REFERER'] ) ? esc_url_raw( wp_unslash( $_SERVER['HTTP_REFERER'] ) ) : '';
@@ -108,7 +115,7 @@ class KFI_Download_Tracker {
 		update_post_meta( $post_id, '_kfi_download_count', $count + 1 );
 		update_post_meta( $post_id, '_kfi_last_download_at', current_time( 'mysql', true ) );
 
-		$this->logger->info( sprintf( 'Tracked download for post #%d (%s).', $post_id, $font_family ) );
+		$this->logger->info( sprintf( 'Tracked %s download for post #%d (%s).', $asset, $post_id, $font_family ) );
 	}
 
 	/**

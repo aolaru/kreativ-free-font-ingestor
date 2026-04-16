@@ -115,6 +115,7 @@ class KFI_Preview_Assets {
 		$preview_path = sanitize_text_field( $preview_asset['preview_path'] );
 		$preview_file = basename( $preview_path );
 		$license_path = isset( $download['license_path'] ) ? sanitize_text_field( $download['license_path'] ) : '';
+		$css_content  = $this->build_webfont_stylesheet( $font_name, $preview_file, $preview_format );
 		$zip          = new ZipArchive();
 		$open         = $zip->open( $zip_path, ZipArchive::CREATE | ZipArchive::OVERWRITE );
 
@@ -123,6 +124,7 @@ class KFI_Preview_Assets {
 		}
 
 		$zip->addFile( $preview_path, $preview_file );
+		$zip->addFromString( 'stylesheet.css', $css_content );
 
 		if ( $license_path && file_exists( $license_path ) ) {
 			$zip->addFile( $license_path, 'OFL.txt' );
@@ -134,8 +136,9 @@ class KFI_Preview_Assets {
 			'preview_asset'  => $preview_file,
 			'preview_format' => $preview_format,
 			'preview_status' => ! empty( $preview_asset['status'] ) ? sanitize_text_field( $preview_asset['status'] ) : '',
+			'stylesheet'     => 'stylesheet.css',
 			'generated_at'   => gmdate( 'c' ),
-			'note'           => 'Generated webfont kit for browser preview usage. Original archive remains the canonical source package.',
+			'note'           => 'Generated webfont kit for browser preview usage with a starter @font-face stylesheet. Original archive remains the canonical source package.',
 		);
 
 		$zip->addFromString( 'webfont-manifest.json', wp_json_encode( $manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) );
@@ -149,6 +152,42 @@ class KFI_Preview_Assets {
 			'zip_path' => $zip_path,
 			'zip_url'  => $zip_url,
 			'zip_size' => file_exists( $zip_path ) ? (int) filesize( $zip_path ) : 0,
+		);
+	}
+
+	/**
+	 * Build starter stylesheet for the webfont kit.
+	 *
+	 * @param string $font_name    Font family.
+	 * @param string $preview_file Preview filename.
+	 * @param string $format       Preview format.
+	 * @return string
+	 */
+	private function build_webfont_stylesheet( $font_name, $preview_file, $format ) {
+		$family = addslashes( $font_name );
+		$file   = rawurlencode( $preview_file );
+		$format = sanitize_text_field( $format );
+
+		return implode(
+			"\n",
+			array(
+				'@font-face {',
+				sprintf( "  font-family: '%s';", $family ),
+				sprintf( "  src: url('./%s') format('%s');", $file, $format ),
+				'  font-style: normal;',
+				'  font-weight: 400;',
+				'  font-display: swap;',
+				'}',
+				'',
+				sprintf( ".font-preview-%s {", sanitize_title( $font_name ) ),
+				sprintf( "  font-family: '%s', sans-serif;", $family ),
+				'}',
+				'',
+				'body {',
+				sprintf( "  font-family: '%s', sans-serif;", $family ),
+				'}',
+				'',
+			)
 		);
 	}
 

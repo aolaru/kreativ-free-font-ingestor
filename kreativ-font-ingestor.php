@@ -578,6 +578,7 @@ final class KFI_Plugin {
 	 * @return array<string, mixed>
 	 */
 	public function backfill_preview_assets( $post_id = 0, $limit = 25 ) {
+		$settings = $this->get_settings();
 		$results  = array(
 			'updated' => 0,
 			'errors'  => array(),
@@ -585,7 +586,7 @@ final class KFI_Plugin {
 		$post_ids = $post_id ? array( absint( $post_id ) ) : $this->get_regeneration_post_ids( $limit );
 
 		foreach ( $post_ids as $target_post_id ) {
-			$result = $this->backfill_preview_assets_for_post( $target_post_id );
+			$result = $this->backfill_preview_assets_for_post( $target_post_id, $settings );
 
 			if ( is_wp_error( $result ) ) {
 				$results['errors'][] = sprintf( '#%1$d: %2$s', $target_post_id, $result->get_error_message() );
@@ -693,10 +694,11 @@ final class KFI_Plugin {
 	/**
 	 * Backfill preview assets for a single imported post.
 	 *
-	 * @param int $post_id Post ID.
+	 * @param int                  $post_id  Post ID.
+	 * @param array<string, mixed> $settings Plugin settings.
 	 * @return true|WP_Error
 	 */
-	private function backfill_preview_assets_for_post( $post_id ) {
+	private function backfill_preview_assets_for_post( $post_id, array $settings ) {
 		$post_id     = absint( $post_id );
 		$font_family = sanitize_text_field( get_post_meta( $post_id, '_kfi_font_family', true ) );
 
@@ -724,7 +726,19 @@ final class KFI_Plugin {
 			$download['webfont_kit'] = $webfont_kit;
 		}
 
+		$zip_file = $this->build_or_refresh_zip_payload( $download );
+
+		if ( is_wp_error( $zip_file ) ) {
+			return $zip_file;
+		}
+
 		$this->publisher->sync_generated_asset_meta( $post_id, $download );
+
+		$refresh = $this->publisher->refresh_post_content( $post_id, $font, $download, $zip_file, $settings );
+
+		if ( is_wp_error( $refresh ) ) {
+			return $refresh;
+		}
 
 		return true;
 	}
