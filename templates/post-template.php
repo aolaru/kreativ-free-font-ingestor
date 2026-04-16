@@ -213,6 +213,8 @@ if ( ! function_exists( 'kfi_render_post_template' ) ) {
 		$show_affiliate = ! empty( trim( wp_strip_all_tags( $affiliate ) ) );
 		$related_posts  = $post_id ? kfi_get_related_font_posts( $post_id, $font ) : array();
 		$download_url   = $zip['zip_url'];
+		$webfont_url    = $post_id ? esc_url_raw( get_post_meta( $post_id, '_kfi_webfont_zip_url', true ) ) : '';
+		$webfont_size   = $post_id ? sanitize_text_field( get_post_meta( $post_id, '_kfi_webfont_zip_size_human', true ) ) : '';
 
 		if ( $post_id && class_exists( 'KFI_Plugin' ) ) {
 			$download_url = KFI_Plugin::instance()->get_download_tracker()->get_download_url( $post_id, $zip['zip_url'] );
@@ -254,6 +256,9 @@ if ( ! function_exists( 'kfi_render_post_template' ) ) {
 					</div>
 					<div class="kfi-inline-cta-row">
 						<a class="button button-primary" href="<?php echo esc_url( $download_url ); ?>" rel="nofollow">Download <?php echo esc_html( $font_name ); ?> ZIP</a>
+						<?php if ( $webfont_url ) : ?>
+							<a class="button" href="<?php echo esc_url( $webfont_url ); ?>" rel="nofollow">Download Webfont Kit<?php echo esc_html( $webfont_size ? ' (' . $webfont_size . ')' : '' ); ?></a>
+						<?php endif; ?>
 						<span class="kfi-inline-note">Includes original files, OFL.txt, and metadata.json</span>
 					</div>
 				</div>

@@ -30,6 +30,7 @@ class KFI_Admin_UI {
 		add_action( 'add_meta_boxes', array( $this, 'register_debug_meta_box' ) );
 		add_action( 'admin_post_kfi_manual_import', array( $this, 'handle_manual_import' ) );
 		add_action( 'admin_post_kfi_regenerate_posts', array( $this, 'handle_regeneration' ) );
+		add_action( 'admin_post_kfi_backfill_preview_assets', array( $this, 'handle_preview_backfill' ) );
 	}
 
 	/**
@@ -317,6 +318,32 @@ class KFI_Admin_UI {
 	}
 
 	/**
+	 * Handle preview backfill actions.
+	 *
+	 * @return void
+	 */
+	public function handle_preview_backfill() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You are not allowed to perform this action.', 'kreativ-font-ingestor' ) );
+		}
+
+		check_admin_referer( 'kfi_backfill_preview_assets' );
+
+		$post_id = isset( $_POST['post_id'] ) ? absint( wp_unslash( $_POST['post_id'] ) ) : 0;
+		$limit   = isset( $_POST['limit'] ) ? max( 1, absint( wp_unslash( $_POST['limit'] ) ) ) : 25;
+		$results = $this->plugin->backfill_preview_assets( $post_id, $limit );
+
+		$query_args = array(
+			'page'                  => 'kreativ-font-ingestor',
+			'preview_backfilled'    => $results['updated'],
+			'preview_backfill_errors' => count( $results['errors'] ),
+		);
+
+		wp_safe_redirect( add_query_arg( $query_args, admin_url( 'admin.php' ) ) );
+		exit;
+	}
+
+	/**
 	 * Render admin page.
 	 *
 	 * @return void
@@ -371,6 +398,23 @@ class KFI_Admin_UI {
 				</div>
 			<?php endif; ?>
 
+			<?php if ( isset( $_GET['preview_backfilled'] ) ) : ?>
+				<div class="notice notice-success is-dismissible">
+					<p>
+						<?php
+						echo esc_html(
+							sprintf(
+								/* translators: 1: updated, 2: errors */
+								__( 'Preview asset backfill completed. Updated: %1$d, Errors: %2$d.', 'kreativ-font-ingestor' ),
+								absint( wp_unslash( $_GET['preview_backfilled'] ) ),
+								absint( wp_unslash( $_GET['preview_backfill_errors'] ) )
+							)
+						);
+						?>
+					</p>
+				</div>
+			<?php endif; ?>
+
 			<form method="post" action="options.php">
 				<?php
 				settings_fields( 'kfi_settings_group' );
@@ -406,6 +450,25 @@ class KFI_Admin_UI {
 				<label for="kfi-regenerate-limit" style="display:block;font-weight:600;margin-bottom:4px;"><?php esc_html_e( 'Recent Posts Limit', 'kreativ-font-ingestor' ); ?></label>
 				<input id="kfi-regenerate-limit" type="number" min="1" max="100" name="limit" value="10" />
 				<?php submit_button( __( 'Regenerate Recent Imported Posts', 'kreativ-font-ingestor' ), 'secondary', 'submit', false, array( 'style' => 'margin-left:8px;' ) ); ?>
+			</form>
+
+			<hr />
+
+			<h2><?php esc_html_e( 'Backfill Preview Assets', 'kreativ-font-ingestor' ); ?></h2>
+			<p><?php esc_html_e( 'Generate managed preview files and optional webfont kits for existing imported fonts without rebuilding the full post content.', 'kreativ-font-ingestor' ); ?></p>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-bottom:16px;">
+				<input type="hidden" name="action" value="kfi_backfill_preview_assets" />
+				<?php wp_nonce_field( 'kfi_backfill_preview_assets' ); ?>
+				<label for="kfi-preview-backfill-post-id" style="display:block;font-weight:600;margin-bottom:4px;"><?php esc_html_e( 'Single Post ID', 'kreativ-font-ingestor' ); ?></label>
+				<input id="kfi-preview-backfill-post-id" type="number" min="1" name="post_id" value="" />
+				<?php submit_button( __( 'Backfill Preview Assets', 'kreativ-font-ingestor' ), 'secondary', 'submit', false, array( 'style' => 'margin-left:8px;' ) ); ?>
+			</form>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="kfi_backfill_preview_assets" />
+				<?php wp_nonce_field( 'kfi_backfill_preview_assets' ); ?>
+				<label for="kfi-preview-backfill-limit" style="display:block;font-weight:600;margin-bottom:4px;"><?php esc_html_e( 'Recent Posts Limit', 'kreativ-font-ingestor' ); ?></label>
+				<input id="kfi-preview-backfill-limit" type="number" min="1" max="100" name="limit" value="25" />
+				<?php submit_button( __( 'Backfill Recent Imported Fonts', 'kreativ-font-ingestor' ), 'secondary', 'submit', false, array( 'style' => 'margin-left:8px;' ) ); ?>
 			</form>
 
 			<hr />
@@ -514,6 +577,9 @@ class KFI_Admin_UI {
 		$preview_status = sanitize_text_field( get_post_meta( $post_id, '_kfi_preview_asset_status', true ) );
 		$source_file    = sanitize_text_field( get_post_meta( $post_id, '_kfi_preview_asset_source_file', true ) );
 		$preview_format = sanitize_text_field( get_post_meta( $post_id, '_kfi_preview_asset_format', true ) );
+		$webfont_url    = sanitize_text_field( get_post_meta( $post_id, '_kfi_webfont_zip_url', true ) );
+		$webfont_name   = sanitize_text_field( get_post_meta( $post_id, '_kfi_webfont_zip_name', true ) );
+		$webfont_size   = sanitize_text_field( get_post_meta( $post_id, '_kfi_webfont_zip_size_human', true ) );
 		$file_exists    = $preview_path && file_exists( $preview_path );
 		$rows           = array(
 			__( 'Managed preview URL', 'kreativ-font-ingestor' )   => $preview_url ? $preview_url : '—',
@@ -522,6 +588,9 @@ class KFI_Admin_UI {
 			__( 'Preview source file', 'kreativ-font-ingestor' )   => $source_file ? $source_file : '—',
 			__( 'Preview format', 'kreativ-font-ingestor' )        => $preview_format ? $preview_format : '—',
 			__( 'File exists on disk', 'kreativ-font-ingestor' )   => $file_exists ? __( 'Yes', 'kreativ-font-ingestor' ) : __( 'No', 'kreativ-font-ingestor' ),
+			__( 'Webfont kit URL', 'kreativ-font-ingestor' )       => $webfont_url ? $webfont_url : '—',
+			__( 'Webfont kit name', 'kreativ-font-ingestor' )      => $webfont_name ? $webfont_name : '—',
+			__( 'Webfont kit size', 'kreativ-font-ingestor' )      => $webfont_size ? $webfont_size : '—',
 		);
 		?>
 		<div class="kfi-preview-debug">

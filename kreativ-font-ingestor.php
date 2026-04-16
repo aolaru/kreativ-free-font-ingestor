@@ -429,6 +429,13 @@ final class KFI_Plugin {
 					$this->logger->error( sprintf( 'Preview asset preparation failed for %s. %s', $font_family, $preview_asset->get_error_message() ) );
 				} else {
 					$download['preview_asset'] = $preview_asset;
+					$webfont_kit               = $this->preview_assets->ensure_webfont_kit( $download, $preview_asset );
+
+					if ( is_wp_error( $webfont_kit ) ) {
+						$this->logger->info( sprintf( 'Webfont kit skipped for %s. %s', $font_family, $webfont_kit->get_error_message() ) );
+					} else {
+						$download['webfont_kit'] = $webfont_kit;
+					}
 				}
 
 				$post_id = $this->publisher->create_post( $font, $download, $zip_file, $settings );
@@ -564,6 +571,43 @@ final class KFI_Plugin {
 	}
 
 	/**
+	 * Backfill managed preview assets and optional webfont kits.
+	 *
+	 * @param int $post_id Single post ID or 0 for batch mode.
+	 * @param int $limit   Batch size.
+	 * @return array<string, mixed>
+	 */
+	public function backfill_preview_assets( $post_id = 0, $limit = 25 ) {
+		$results  = array(
+			'updated' => 0,
+			'errors'  => array(),
+		);
+		$post_ids = $post_id ? array( absint( $post_id ) ) : $this->get_regeneration_post_ids( $limit );
+
+		foreach ( $post_ids as $target_post_id ) {
+			$result = $this->backfill_preview_assets_for_post( $target_post_id );
+
+			if ( is_wp_error( $result ) ) {
+				$results['errors'][] = sprintf( '#%1$d: %2$s', $target_post_id, $result->get_error_message() );
+				$this->logger->error( sprintf( 'Preview backfill failed for post #%1$d. %2$s', $target_post_id, $result->get_error_message() ) );
+				continue;
+			}
+
+			++$results['updated'];
+		}
+
+		$this->logger->info(
+			sprintf(
+				'Preview backfill finished. Updated: %d. Errors: %d',
+				$results['updated'],
+				count( $results['errors'] )
+			)
+		);
+
+		return $results;
+	}
+
+	/**
 	 * Regenerate a single imported post.
 	 *
 	 * @param int                  $post_id  Post ID.
@@ -608,6 +652,11 @@ final class KFI_Plugin {
 
 		if ( ! is_wp_error( $preview_asset ) ) {
 			$download['preview_asset'] = $preview_asset;
+			$webfont_kit               = $this->preview_assets->ensure_webfont_kit( $download, $preview_asset );
+
+			if ( ! is_wp_error( $webfont_kit ) ) {
+				$download['webfont_kit'] = $webfont_kit;
+			}
 		}
 
 		$sync = $this->publisher->sync_post_data( $post_id, $font, $download, $zip_file, $settings );
@@ -637,6 +686,45 @@ final class KFI_Plugin {
 				'source_hash' => hash( 'sha256', wp_json_encode( $font ) ),
 			)
 		);
+
+		return true;
+	}
+
+	/**
+	 * Backfill preview assets for a single imported post.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return true|WP_Error
+	 */
+	private function backfill_preview_assets_for_post( $post_id ) {
+		$post_id     = absint( $post_id );
+		$font_family = sanitize_text_field( get_post_meta( $post_id, '_kfi_font_family', true ) );
+
+		if ( ! $post_id || '' === $font_family ) {
+			return new WP_Error( 'kfi_preview_backfill_invalid_post', 'This post does not appear to be an imported font post.' );
+		}
+
+		$font     = $this->build_fallback_font_payload( $post_id, $font_family );
+		$download = $this->build_local_download_payload( $post_id, $font );
+
+		if ( is_wp_error( $download ) ) {
+			return $download;
+		}
+
+		$preview_asset = $this->preview_assets->ensure_preview_asset( $download );
+
+		if ( is_wp_error( $preview_asset ) ) {
+			return $preview_asset;
+		}
+
+		$download['preview_asset'] = $preview_asset;
+		$webfont_kit               = $this->preview_assets->ensure_webfont_kit( $download, $preview_asset );
+
+		if ( ! is_wp_error( $webfont_kit ) ) {
+			$download['webfont_kit'] = $webfont_kit;
+		}
+
+		$this->publisher->sync_generated_asset_meta( $post_id, $download );
 
 		return true;
 	}

@@ -174,14 +174,6 @@ class KFI_Publisher {
 		update_post_meta( $post_id, '_kfi_zip_size', isset( $zip_file['zip_size'] ) ? (int) $zip_file['zip_size'] : 0 );
 		update_post_meta( $post_id, '_kfi_zip_size_human', size_format( isset( $zip_file['zip_size'] ) ? (int) $zip_file['zip_size'] : 0, 2 ) );
 		update_post_meta( $post_id, '_kfi_package_file_count', count( $download['files'] ) + 2 );
-		update_post_meta( $post_id, '_kfi_preview_font_url', esc_url_raw( $preview_font['url'] ) );
-		update_post_meta( $post_id, '_kfi_preview_font_format', sanitize_text_field( $preview_font['format'] ) );
-		update_post_meta( $post_id, '_kfi_preview_asset_url', esc_url_raw( $preview_font['managed_url'] ) );
-		update_post_meta( $post_id, '_kfi_preview_asset_format', sanitize_text_field( $preview_font['managed_format'] ) );
-		update_post_meta( $post_id, '_kfi_preview_asset_path', sanitize_text_field( $preview_font['managed_path'] ) );
-		update_post_meta( $post_id, '_kfi_preview_asset_source_file', sanitize_text_field( $preview_font['source_file'] ) );
-		update_post_meta( $post_id, '_kfi_preview_asset_status', sanitize_text_field( $preview_font['status'] ) );
-		update_post_meta( $post_id, '_kfi_preview_asset_generated_at', sanitize_text_field( $preview_font['generated_at'] ) );
 		update_post_meta( $post_id, '_kfi_featured_image_placeholder', get_post_thumbnail_id( $post_id ) ? 0 : 1 );
 		update_post_meta( $post_id, '_kfi_taxonomy_assignment', $taxonomy_result );
 		update_post_meta( $post_id, '_kfi_font_description', ! empty( $font['description_plain'] ) ? wp_strip_all_tags( $font['description_plain'] ) : '' );
@@ -202,7 +194,46 @@ class KFI_Publisher {
 			update_post_meta( $post_id, '_kfi_last_download_at', '' );
 		}
 
+		$this->sync_generated_asset_meta( $post_id, $download, $preview_font );
+
 		return true;
+	}
+
+	/**
+	 * Sync managed preview and optional webfont kit meta.
+	 *
+	 * @param int                  $post_id      Post ID.
+	 * @param array<string, mixed> $download     Download payload.
+	 * @param array<string, mixed>|null $preview_font Resolved preview font data.
+	 * @return void
+	 */
+	public function sync_generated_asset_meta( $post_id, array $download, $preview_font = null ) {
+		$post_id      = absint( $post_id );
+		$preview_font = is_array( $preview_font ) ? $preview_font : $this->get_preview_font_data( $download );
+		$webfont_kit  = isset( $download['webfont_kit'] ) && is_array( $download['webfont_kit'] ) ? $download['webfont_kit'] : array();
+
+		update_post_meta( $post_id, '_kfi_preview_font_url', esc_url_raw( $preview_font['url'] ) );
+		update_post_meta( $post_id, '_kfi_preview_font_format', sanitize_text_field( $preview_font['format'] ) );
+		update_post_meta( $post_id, '_kfi_preview_asset_url', esc_url_raw( $preview_font['managed_url'] ) );
+		update_post_meta( $post_id, '_kfi_preview_asset_format', sanitize_text_field( $preview_font['managed_format'] ) );
+		update_post_meta( $post_id, '_kfi_preview_asset_path', sanitize_text_field( $preview_font['managed_path'] ) );
+		update_post_meta( $post_id, '_kfi_preview_asset_source_file', sanitize_text_field( $preview_font['source_file'] ) );
+		update_post_meta( $post_id, '_kfi_preview_asset_status', sanitize_text_field( $preview_font['status'] ) );
+		update_post_meta( $post_id, '_kfi_preview_asset_generated_at', sanitize_text_field( $preview_font['generated_at'] ) );
+
+		if ( ! empty( $webfont_kit ) ) {
+			update_post_meta( $post_id, '_kfi_webfont_zip_url', esc_url_raw( $webfont_kit['zip_url'] ) );
+			update_post_meta( $post_id, '_kfi_webfont_zip_path', sanitize_text_field( $webfont_kit['zip_path'] ) );
+			update_post_meta( $post_id, '_kfi_webfont_zip_name', sanitize_file_name( $webfont_kit['zip_name'] ) );
+			update_post_meta( $post_id, '_kfi_webfont_zip_size', isset( $webfont_kit['zip_size'] ) ? (int) $webfont_kit['zip_size'] : 0 );
+			update_post_meta( $post_id, '_kfi_webfont_zip_size_human', size_format( isset( $webfont_kit['zip_size'] ) ? (int) $webfont_kit['zip_size'] : 0, 2 ) );
+		} else {
+			delete_post_meta( $post_id, '_kfi_webfont_zip_url' );
+			delete_post_meta( $post_id, '_kfi_webfont_zip_path' );
+			delete_post_meta( $post_id, '_kfi_webfont_zip_name' );
+			delete_post_meta( $post_id, '_kfi_webfont_zip_size' );
+			delete_post_meta( $post_id, '_kfi_webfont_zip_size_human' );
+		}
 	}
 
 	/**

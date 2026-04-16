@@ -49,36 +49,29 @@ class KFI_Preview_Assets {
 
 		$folder_path = trailingslashit( $download['folder_path'] ) . 'preview/';
 		$folder_url  = trailingslashit( $download['folder_url'] ) . 'preview/';
-		$extension   = strtolower( sanitize_text_field( $source['extension'] ) );
-		$filename    = 'kfi-preview.' . $extension;
-		$target_path = $folder_path . $filename;
-		$target_url  = $folder_url . $filename;
 
 		wp_mkdir_p( $folder_path );
 		$this->ensure_preview_protection( $folder_path );
+		$conversion = $this->build_preview_asset( $source, $folder_path, $folder_url );
 
-		if ( ! file_exists( $target_path ) || md5_file( $target_path ) !== md5_file( $source['path'] ) ) {
-			if ( ! copy( $source['path'], $target_path ) ) {
-				return new WP_Error( 'kfi_preview_copy_failed', 'Failed to copy the preview asset into the managed preview directory.' );
-			}
+		if ( is_wp_error( $conversion ) ) {
+			return $conversion;
 		}
-
-		$format = $this->normalize_font_format( $extension );
-		$status = in_array( $extension, array( 'woff2', 'woff' ), true ) ? 'ready' : 'fallback_source';
-		$note   = 'ready' === $status ? 'Managed webfont preview asset is ready.' : 'Managed preview asset uses an original source font until webfont conversion is added.';
 
 		$manifest = array(
 			'font_family'      => $font_name,
 			'font_slug'        => $font_slug,
-			'status'           => $status,
-			'format'           => $format,
-			'extension'        => $extension,
-			'preview_url'      => $target_url,
-			'preview_path'     => $target_path,
+			'status'           => $conversion['status'],
+			'format'           => $conversion['format'],
+			'extension'        => $conversion['extension'],
+			'preview_url'      => $conversion['preview_url'],
+			'preview_path'     => $conversion['preview_path'],
 			'source_file'      => $source['filename'],
 			'source_variant'   => $source['variant'],
 			'source_path'      => $source['path'],
-			'note'             => $note,
+			'note'             => $conversion['note'],
+			'tool'             => $conversion['tool'],
+			'toolchain_status' => $this->get_toolchain_status(),
 			'generated_at'     => gmdate( 'c' ),
 		);
 
@@ -89,6 +82,74 @@ class KFI_Preview_Assets {
 		);
 
 		return $manifest;
+	}
+
+	/**
+	 * Generate a public webfont kit ZIP from managed preview assets.
+	 *
+	 * @param array<string, mixed> $download      Download payload.
+	 * @param array<string, mixed> $preview_asset Managed preview asset.
+	 * @return array<string, mixed>|WP_Error
+	 */
+	public function ensure_webfont_kit( array $download, array $preview_asset ) {
+		if ( empty( $preview_asset['preview_path'] ) || empty( $preview_asset['preview_url'] ) ) {
+			return new WP_Error( 'kfi_webfont_preview_missing', 'Managed preview asset is required before a webfont kit can be created.' );
+		}
+
+		$preview_format = ! empty( $preview_asset['format'] ) ? sanitize_text_field( $preview_asset['format'] ) : '';
+
+		if ( ! in_array( $preview_format, array( 'woff2', 'woff' ), true ) ) {
+			return new WP_Error( 'kfi_webfont_format_invalid', 'A public webfont kit can only be created from managed woff2 or woff preview assets.' );
+		}
+
+		if ( ! class_exists( 'ZipArchive' ) ) {
+			return new WP_Error( 'kfi_webfont_zip_missing', 'ZipArchive is required to create webfont kits.' );
+		}
+
+		$paths        = $this->logger->get_upload_paths();
+		$font_name    = sanitize_text_field( $download['font_name'] );
+		$font_slug    = sanitize_title( $download['font_slug'] );
+		$zip_name     = sanitize_file_name( $font_slug . '-webfont.zip' );
+		$zip_path     = $paths['packages'] . $zip_name;
+		$zip_url      = $paths['packages_url'] . $zip_name;
+		$preview_path = sanitize_text_field( $preview_asset['preview_path'] );
+		$preview_file = basename( $preview_path );
+		$license_path = isset( $download['license_path'] ) ? sanitize_text_field( $download['license_path'] ) : '';
+		$zip          = new ZipArchive();
+		$open         = $zip->open( $zip_path, ZipArchive::CREATE | ZipArchive::OVERWRITE );
+
+		if ( true !== $open ) {
+			return new WP_Error( 'kfi_webfont_zip_error', 'Failed to create the webfont kit ZIP archive.' );
+		}
+
+		$zip->addFile( $preview_path, $preview_file );
+
+		if ( $license_path && file_exists( $license_path ) ) {
+			$zip->addFile( $license_path, 'OFL.txt' );
+		}
+
+		$manifest = array(
+			'font_family'    => $font_name,
+			'font_slug'      => $font_slug,
+			'preview_asset'  => $preview_file,
+			'preview_format' => $preview_format,
+			'preview_status' => ! empty( $preview_asset['status'] ) ? sanitize_text_field( $preview_asset['status'] ) : '',
+			'generated_at'   => gmdate( 'c' ),
+			'note'           => 'Generated webfont kit for browser preview usage. Original archive remains the canonical source package.',
+		);
+
+		$zip->addFromString( 'webfont-manifest.json', wp_json_encode( $manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) );
+
+		if ( ! $zip->close() ) {
+			return new WP_Error( 'kfi_webfont_zip_error', 'Failed to finalize the webfont kit ZIP archive.' );
+		}
+
+		return array(
+			'zip_name' => $zip_name,
+			'zip_path' => $zip_path,
+			'zip_url'  => $zip_url,
+			'zip_size' => file_exists( $zip_path ) ? (int) filesize( $zip_path ) : 0,
+		);
 	}
 
 	/**
@@ -121,6 +182,187 @@ class KFI_Preview_Assets {
 		}
 
 		return isset( $files[0] ) && is_array( $files[0] ) ? $files[0] : array();
+	}
+
+	/**
+	 * Build managed preview asset with conversion when possible.
+	 *
+	 * @param array<string, string> $source      Source file.
+	 * @param string                $folder_path Preview directory.
+	 * @param string                $folder_url  Preview URL.
+	 * @return array<string, string>|WP_Error
+	 */
+	private function build_preview_asset( array $source, $folder_path, $folder_url ) {
+		$source_path = sanitize_text_field( $source['path'] );
+		$extension   = strtolower( sanitize_text_field( $source['extension'] ) );
+
+		if ( in_array( $extension, array( 'woff2', 'woff' ), true ) ) {
+			$target_path = $folder_path . 'kfi-preview.' . $extension;
+			$target_url  = $folder_url . 'kfi-preview.' . $extension;
+
+			if ( ! file_exists( $target_path ) || md5_file( $target_path ) !== md5_file( $source_path ) ) {
+				if ( ! copy( $source_path, $target_path ) ) {
+					return new WP_Error( 'kfi_preview_copy_failed', 'Failed to copy the webfont preview asset.' );
+				}
+			}
+
+			return array(
+				'status'       => 'ready',
+				'format'       => $this->normalize_font_format( $extension ),
+				'extension'    => $extension,
+				'preview_url'  => $target_url,
+				'preview_path' => $target_path,
+				'note'         => 'Managed webfont preview asset is ready.',
+				'tool'         => 'direct-copy',
+			);
+		}
+
+		if ( in_array( $extension, array( 'ttf', 'otf' ), true ) ) {
+			$converted = $this->convert_to_woff2( $source_path, $folder_path, 'kfi-preview.woff2' );
+
+			if ( ! is_wp_error( $converted ) ) {
+				return array(
+					'status'       => 'converted',
+					'format'       => 'woff2',
+					'extension'    => 'woff2',
+					'preview_url'  => $folder_url . 'kfi-preview.woff2',
+					'preview_path' => $converted['path'],
+					'note'         => sprintf( 'Managed preview asset converted to woff2 using %s.', $converted['tool'] ),
+					'tool'         => $converted['tool'],
+				);
+			}
+
+			$target_path = $folder_path . 'kfi-preview.' . $extension;
+			$target_url  = $folder_url . 'kfi-preview.' . $extension;
+
+			if ( ! file_exists( $target_path ) || md5_file( $target_path ) !== md5_file( $source_path ) ) {
+				if ( ! copy( $source_path, $target_path ) ) {
+					return new WP_Error( 'kfi_preview_copy_failed', 'Failed to copy the fallback preview asset.' );
+				}
+			}
+
+			return array(
+				'status'       => 'fallback_source',
+				'format'       => $this->normalize_font_format( $extension ),
+				'extension'    => $extension,
+				'preview_url'  => $target_url,
+				'preview_path' => $target_path,
+				'note'         => 'No local webfont converter was available, so the managed preview asset uses the original source file.',
+				'tool'         => 'fallback-copy',
+			);
+		}
+
+		return new WP_Error( 'kfi_preview_unsupported_source', 'Unsupported source file type for preview asset generation.' );
+	}
+
+	/**
+	 * Convert a font source to woff2 if a supported tool is available.
+	 *
+	 * @param string $source_path Source path.
+	 * @param string $folder_path Output directory.
+	 * @param string $filename    Output filename.
+	 * @return array<string, string>|WP_Error
+	 */
+	private function convert_to_woff2( $source_path, $folder_path, $filename ) {
+		if ( $this->command_exists( 'pyftsubset' ) ) {
+			$output_path = $folder_path . $filename;
+			$command     = sprintf(
+				'pyftsubset %s --output-file=%s --flavor=woff2 --unicodes=* --layout-features="*" --passthrough-tables 2>&1',
+				escapeshellarg( $source_path ),
+				escapeshellarg( $output_path )
+			);
+			$result      = $this->run_command( $command );
+
+			if ( 0 === $result['code'] && file_exists( $output_path ) ) {
+				return array(
+					'path' => $output_path,
+					'tool' => 'pyftsubset',
+				);
+			}
+		}
+
+		if ( $this->command_exists( 'woff2_compress' ) ) {
+			$temp_source = $folder_path . basename( $source_path );
+
+			if ( ! file_exists( $temp_source ) && ! copy( $source_path, $temp_source ) ) {
+				return new WP_Error( 'kfi_preview_temp_copy_failed', 'Failed to prepare a temporary source file for woff2 conversion.' );
+			}
+
+			$command = sprintf(
+				'woff2_compress %s 2>&1',
+				escapeshellarg( $temp_source )
+			);
+			$result  = $this->run_command( $command );
+			$output  = preg_replace( '/\.[^.]+$/', '.woff2', $temp_source );
+
+			if ( 0 === $result['code'] && $output && file_exists( $output ) ) {
+				$final_output = $folder_path . $filename;
+
+				if ( ! rename( $output, $final_output ) ) {
+					return new WP_Error( 'kfi_preview_output_move_failed', 'Failed to move the converted woff2 preview asset into place.' );
+				}
+
+				return array(
+					'path' => $final_output,
+					'tool' => 'woff2_compress',
+				);
+			}
+		}
+
+		return new WP_Error( 'kfi_preview_conversion_unavailable', 'No supported local webfont conversion tool is available.' );
+	}
+
+	/**
+	 * Get current conversion toolchain status.
+	 *
+	 * @return array<string, bool>
+	 */
+	private function get_toolchain_status() {
+		return array(
+			'pyftsubset'     => $this->command_exists( 'pyftsubset' ),
+			'woff2_compress' => $this->command_exists( 'woff2_compress' ),
+		);
+	}
+
+	/**
+	 * Check if a shell command exists.
+	 *
+	 * @param string $command Command name.
+	 * @return bool
+	 */
+	private function command_exists( $command ) {
+		if ( ! function_exists( 'shell_exec' ) ) {
+			return false;
+		}
+
+		$output = shell_exec( sprintf( 'command -v %s 2>/dev/null', escapeshellarg( $command ) ) );
+
+		return is_string( $output ) && '' !== trim( $output );
+	}
+
+	/**
+	 * Run a shell command with captured output.
+	 *
+	 * @param string $command Shell command.
+	 * @return array<string, mixed>
+	 */
+	private function run_command( $command ) {
+		if ( ! function_exists( 'exec' ) ) {
+			return array(
+				'code'   => 1,
+				'output' => 'exec() is disabled on this server.',
+			);
+		}
+
+		$output = array();
+		$code   = 1;
+
+		exec( $command, $output, $code );
+
+		return array(
+			'code'   => (int) $code,
+			'output' => implode( "\n", $output ),
+		);
 	}
 
 	/**
