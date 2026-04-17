@@ -41,18 +41,21 @@ if (previewSize && previewSample && previewReadout) {
 }
 
 const appliedFontFamily = config.previewAlias || config.fontFamily || '';
+const previewStack = config.previewStack || (appliedFontFamily ? `"${appliedFontFamily}", sans-serif` : '');
 const previewSource = config.previewUrl || '';
 const previewFormat = config.previewFormat || '';
 
 const applyPreviewFontFamily = () => {
-	if (!fontFamilyTargets.length || !appliedFontFamily) {
+	if (!fontFamilyTargets.length || !previewStack) {
 		return;
 	}
 
 	fontFamilyTargets.forEach((element) => {
-		element.style.fontFamily = `"${appliedFontFamily}", sans-serif`;
+		element.style.fontFamily = previewStack;
 	});
 };
+
+applyPreviewFontFamily();
 
 if (previewSource && appliedFontFamily && 'FontFace' in window) {
 	const loadPreviewFace = async () => {
@@ -90,6 +93,4 @@ if (previewSource && appliedFontFamily && 'FontFace' in window) {
 	};
 
 	loadPreviewFace();
-} else {
-	applyPreviewFontFamily();
 }

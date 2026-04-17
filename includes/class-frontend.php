@@ -43,6 +43,17 @@ class KFI_Frontend {
 			KFI_VERSION
 		);
 
+		$google_preview_url = $this->build_google_preview_url( $post_id, $font_family );
+
+		if ( $google_preview_url ) {
+			wp_enqueue_style(
+				'kfi-google-preview',
+				$google_preview_url,
+				array(),
+				null
+			);
+		}
+
 		wp_enqueue_script(
 			'kfi-frontend',
 			KFI_PLUGIN_URL . 'assets/js/frontend.js',
@@ -51,9 +62,12 @@ class KFI_Frontend {
 			true
 		);
 
+		$preview_alias = 'KFI Preview ' . absint( $post_id );
 		$config = array(
 			'fontFamily'    => sanitize_text_field( $font_family ),
-			'previewAlias'  => 'KFI Preview ' . absint( $post_id ),
+			'previewAlias'  => $preview_alias,
+			'previewStack'  => $this->build_preview_stack( $font_family, $preview_alias ),
+			'googlePreview' => (bool) $google_preview_url,
 			'previewUrl'    => esc_url_raw( get_post_meta( $post_id, '_kfi_preview_asset_url', true ) ? get_post_meta( $post_id, '_kfi_preview_asset_url', true ) : get_post_meta( $post_id, '_kfi_preview_font_url', true ) ),
 			'previewFormat' => sanitize_text_field( get_post_meta( $post_id, '_kfi_preview_asset_format', true ) ? get_post_meta( $post_id, '_kfi_preview_asset_format', true ) : get_post_meta( $post_id, '_kfi_preview_font_format', true ) ),
 			'previewStatus' => sanitize_text_field( get_post_meta( $post_id, '_kfi_preview_asset_status', true ) ),
@@ -74,11 +88,134 @@ class KFI_Frontend {
 
 			$font_face = sprintf(
 				'@font-face{font-family:"%1$s";src:%2$s;font-display:swap;font-style:normal;font-weight:400;}',
-				esc_attr( $config['previewAlias'] ),
+				esc_attr( $preview_alias ),
 				implode( ',', $src_parts )
 			);
 			wp_add_inline_style( 'kfi-frontend', $font_face );
 		}
+	}
+
+	/**
+	 * Build Google Fonts stylesheet URL for live preview.
+	 *
+	 * @param int    $post_id     Post ID.
+	 * @param string $font_family Font family.
+	 * @return string
+	 */
+	private function build_google_preview_url( $post_id, $font_family ) {
+		$post_id     = absint( $post_id );
+		$font_family = sanitize_text_field( $font_family );
+
+		if ( ! $post_id || '' === $font_family ) {
+			return '';
+		}
+
+		$variants = get_post_meta( $post_id, '_kfi_variants', true );
+		$variants = is_array( $variants ) ? array_map( 'sanitize_text_field', $variants ) : array();
+		$family   = $this->build_google_css_family_query( $font_family, $variants );
+
+		if ( '' === $family ) {
+			return '';
+		}
+
+		return esc_url_raw(
+			add_query_arg(
+				array(
+					'family'  => $family,
+					'display' => 'swap',
+				),
+				'https://fonts.googleapis.com/css2'
+			)
+		);
+	}
+
+	/**
+	 * Build a preview font-family stack with Google family first and local alias fallback second.
+	 *
+	 * @param string $font_family   Font family.
+	 * @param string $preview_alias Local preview alias.
+	 * @return string
+	 */
+	private function build_preview_stack( $font_family, $preview_alias ) {
+		return sprintf(
+			'"%1$s","%2$s",sans-serif',
+			esc_js( sanitize_text_field( $font_family ) ),
+			esc_js( sanitize_text_field( $preview_alias ) )
+		);
+	}
+
+	/**
+	 * Convert stored variant meta to a Google Fonts css2 family query.
+	 *
+	 * @param string            $font_family Font family.
+	 * @param array<int,string> $variants    Stored variants.
+	 * @return string
+	 */
+	private function build_google_css_family_query( $font_family, array $variants ) {
+		$family = str_replace( ' ', '+', trim( sanitize_text_field( $font_family ) ) );
+
+		if ( '' === $family ) {
+			return '';
+		}
+
+		$normal_weights = array();
+		$italic_weights = array();
+
+		foreach ( $variants as $variant ) {
+			$variant = strtolower( trim( $variant ) );
+
+			if ( '' === $variant ) {
+				continue;
+			}
+
+			if ( 'regular' === $variant ) {
+				$normal_weights[] = 400;
+				continue;
+			}
+
+			if ( 'italic' === $variant ) {
+				$italic_weights[] = 400;
+				continue;
+			}
+
+			if ( preg_match( '/^(\d{3})italic$/', $variant, $matches ) ) {
+				$italic_weights[] = (int) $matches[1];
+				continue;
+			}
+
+			if ( preg_match( '/^\d{3}$/', $variant ) ) {
+				$normal_weights[] = (int) $variant;
+			}
+		}
+
+		$normal_weights = array_values( array_unique( array_filter( $normal_weights ) ) );
+		$italic_weights = array_values( array_unique( array_filter( $italic_weights ) ) );
+		sort( $normal_weights );
+		sort( $italic_weights );
+
+		if ( empty( $normal_weights ) && empty( $italic_weights ) ) {
+			return $family;
+		}
+
+		if ( ! empty( $italic_weights ) ) {
+			if ( empty( $normal_weights ) ) {
+				$normal_weights[] = 400;
+			}
+
+			$pairs = array();
+
+			foreach ( $normal_weights as $weight ) {
+				$pairs[] = '0,' . $weight;
+			}
+
+			foreach ( $italic_weights as $weight ) {
+				$pairs[] = '1,' . $weight;
+			}
+
+			return $family . ':ital,wght@' . implode( ';', $pairs );
+		}
+
+		return $family . ':wght@' . implode( ';', $normal_weights );
 	}
 
 	/**
