@@ -171,9 +171,12 @@ class KFI_Featured_Image {
 			return new WP_Error( 'kfi_featured_no_gd', 'GD extension is required to generate featured images.' );
 		}
 
-		$width  = 1600;
-		$height = 900;
-		$image  = imagecreatetruecolor( $width, $height );
+		$width        = 1600;
+		$height       = 900;
+		$scale        = 2;
+		$canvas_width = $width * $scale;
+		$canvas_height = $height * $scale;
+		$image        = $this->create_canvas( $canvas_width, $canvas_height );
 
 		if ( ! $image ) {
 			return new WP_Error( 'kfi_featured_create_failed', 'Unable to create image canvas.' );
@@ -194,30 +197,30 @@ class KFI_Featured_Image {
 		$line_color = imagecolorallocatealpha( $image, $theme['line'][0], $theme['line'][1], $theme['line'][2], 44 );
 		$samples    = $this->get_specimen_samples( $data['subsets'], $data['font_name'] );
 
-		for ( $y = 0; $y < $height; $y++ ) {
-			$ratio = $y / max( 1, $height - 1 );
+		for ( $y = 0; $y < $canvas_height; $y++ ) {
+			$ratio = $y / max( 1, $canvas_height - 1 );
 			$red   = (int) round( $bg_start[0] + ( $bg_end[0] - $bg_start[0] ) * $ratio );
 			$green = (int) round( $bg_start[1] + ( $bg_end[1] - $bg_start[1] ) * $ratio );
 			$blue  = (int) round( $bg_start[2] + ( $bg_end[2] - $bg_start[2] ) * $ratio );
 			$line  = imagecolorallocate( $image, $red, $green, $blue );
-			imageline( $image, 0, $y, $width, $y, $line );
+			imageline( $image, 0, $y, $canvas_width, $y, $line );
 		}
 
-		imagefilledellipse( $image, 1250, 120, $theme['hero_shape_w'], $theme['hero_shape_h'], $shape_a );
-		imagefilledellipse( $image, 220, 760, $theme['secondary_shape_w'], $theme['secondary_shape_h'], $shape_b );
-		imagefilledrectangle( $image, 84, 92, 1516, 808, $panel_fill );
+		imagefilledellipse( $image, $this->scale_value( 1250, $scale ), $this->scale_value( 120, $scale ), $this->scale_value( $theme['hero_shape_w'], $scale ), $this->scale_value( $theme['hero_shape_h'], $scale ), $shape_a );
+		imagefilledellipse( $image, $this->scale_value( 220, $scale ), $this->scale_value( 760, $scale ), $this->scale_value( $theme['secondary_shape_w'], $scale ), $this->scale_value( $theme['secondary_shape_h'], $scale ), $shape_b );
+		imagefilledrectangle( $image, $this->scale_value( 84, $scale ), $this->scale_value( 92, $scale ), $this->scale_value( 1516, $scale ), $this->scale_value( 808, $scale ), $panel_fill );
 
-		imagesetthickness( $image, 3 );
-		imagerectangle( $image, 84, 92, 1516, 808, $line_color );
+		imagesetthickness( $image, $this->scale_value( 3, $scale ) );
+		imagerectangle( $image, $this->scale_value( 84, $scale ), $this->scale_value( 92, $scale ), $this->scale_value( 1516, $scale ), $this->scale_value( 808, $scale ), $line_color );
 		imagesetthickness( $image, 1 );
 
 		$this->draw_text(
 			$image,
 			array(
 				'text'      => 'KREATIV FONT',
-				'x'         => 120,
-				'y'         => 160,
-				'size'      => 24,
+				'x'         => $this->scale_value( 120, $scale ),
+				'y'         => $this->scale_value( 160, $scale ),
+				'size'      => $this->scale_value( 24, $scale ),
 				'color'     => $accent,
 				'font_path' => '',
 				'builtin'   => 5,
@@ -228,9 +231,9 @@ class KFI_Featured_Image {
 			$image,
 			array(
 				'text'      => $theme['kicker'],
-				'x'         => 120,
-				'y'         => 225,
-				'size'      => 30,
+				'x'         => $this->scale_value( 120, $scale ),
+				'y'         => $this->scale_value( 225, $scale ),
+				'size'      => $this->scale_value( 30, $scale ),
 				'color'     => $soft_dark,
 				'font_path' => '',
 				'builtin'   => 5,
@@ -241,9 +244,9 @@ class KFI_Featured_Image {
 			$image,
 			array(
 				'text'      => $data['font_name'],
-				'x'         => 120,
-				'y'         => $theme['title_y'],
-				'size'      => $theme['title_size'],
+				'x'         => $this->scale_value( 120, $scale ),
+				'y'         => $this->scale_value( $theme['title_y'], $scale ),
+				'size'      => $this->scale_value( $theme['title_size'], $scale ),
 				'color'     => $deep,
 				'font_path' => $data['font_path'],
 				'builtin'   => 5,
@@ -254,9 +257,9 @@ class KFI_Featured_Image {
 			$image,
 			array(
 				'text'      => 'Free Download',
-				'x'         => 120,
-				'y'         => $theme['subtitle_y'],
-				'size'      => 48,
+				'x'         => $this->scale_value( 120, $scale ),
+				'y'         => $this->scale_value( $theme['subtitle_y'], $scale ),
+				'size'      => $this->scale_value( 48, $scale ),
 				'color'     => $soft_dark,
 				'font_path' => '',
 				'builtin'   => 5,
@@ -267,9 +270,9 @@ class KFI_Featured_Image {
 			$image,
 			array(
 				'text'      => sprintf( '%s font package with local ZIP, OFL license, and commercial-use guidance.', $data['font_name'] ),
-				'x'         => 120,
-				'y'         => $theme['body_y'],
-				'size'      => 28,
+				'x'         => $this->scale_value( 120, $scale ),
+				'y'         => $this->scale_value( $theme['body_y'], $scale ),
+				'size'      => $this->scale_value( 28, $scale ),
 				'color'     => $soft_dark,
 				'font_path' => '',
 				'builtin'   => 4,
@@ -280,9 +283,9 @@ class KFI_Featured_Image {
 			$image,
 			array(
 				'text'      => sprintf( '%s specimen', ucfirst( $data['category'] ) ),
-				'x'         => 120,
-				'y'         => $theme['specimen_label_y'],
-				'size'      => 30,
+				'x'         => $this->scale_value( 120, $scale ),
+				'y'         => $this->scale_value( $theme['specimen_label_y'], $scale ),
+				'size'      => $this->scale_value( 30, $scale ),
 				'color'     => $accent,
 				'font_path' => '',
 				'builtin'   => 5,
@@ -290,14 +293,14 @@ class KFI_Featured_Image {
 		);
 
 		if ( 'editorial' === $theme['layout'] ) {
-			imagefilledroundedrectangle( $image, 860, 180, 1410, 720, 30, imagecolorallocatealpha( $image, 255, 255, 255, 36 ) );
+			imagefilledroundedrectangle( $image, $this->scale_value( 860, $scale ), $this->scale_value( 180, $scale ), $this->scale_value( 1410, $scale ), $this->scale_value( 720, $scale ), $this->scale_value( 30, $scale ), imagecolorallocatealpha( $image, 255, 255, 255, 36 ) );
 			$this->draw_text(
 				$image,
 				array(
 					'text'      => $samples['headline'],
-					'x'         => 940,
-					'y'         => 430,
-					'size'      => 72,
+					'x'         => $this->scale_value( 940, $scale ),
+					'y'         => $this->scale_value( 430, $scale ),
+					'size'      => $this->scale_value( 72, $scale ),
 					'color'     => $deep,
 					'font_path' => $data['font_path'],
 					'builtin'   => 5,
@@ -307,26 +310,26 @@ class KFI_Featured_Image {
 				$image,
 				array(
 					'text'      => 'Editorial specimen',
-					'x'         => 940,
-					'y'         => 500,
-					'size'      => 24,
+					'x'         => $this->scale_value( 940, $scale ),
+					'y'         => $this->scale_value( 500, $scale ),
+					'size'      => $this->scale_value( 24, $scale ),
 					'color'     => $soft_dark,
 					'font_path' => '',
 					'builtin'   => 4,
 				)
 			);
 		} elseif ( 'interface' === $theme['layout'] ) {
-			imagefilledroundedrectangle( $image, 920, 170, 1450, 710, 32, imagecolorallocatealpha( $image, 255, 255, 255, 28 ) );
-			imagefilledroundedrectangle( $image, 970, 240, 1400, 320, 18, $white );
-			imagefilledroundedrectangle( $image, 970, 355, 1330, 430, 18, imagecolorallocatealpha( $image, 255, 255, 255, 22 ) );
-			imagefilledroundedrectangle( $image, 970, 468, 1240, 543, 18, imagecolorallocatealpha( $image, 255, 255, 255, 26 ) );
+			imagefilledroundedrectangle( $image, $this->scale_value( 920, $scale ), $this->scale_value( 170, $scale ), $this->scale_value( 1450, $scale ), $this->scale_value( 710, $scale ), $this->scale_value( 32, $scale ), imagecolorallocatealpha( $image, 255, 255, 255, 28 ) );
+			imagefilledroundedrectangle( $image, $this->scale_value( 970, $scale ), $this->scale_value( 240, $scale ), $this->scale_value( 1400, $scale ), $this->scale_value( 320, $scale ), $this->scale_value( 18, $scale ), $white );
+			imagefilledroundedrectangle( $image, $this->scale_value( 970, $scale ), $this->scale_value( 355, $scale ), $this->scale_value( 1330, $scale ), $this->scale_value( 430, $scale ), $this->scale_value( 18, $scale ), imagecolorallocatealpha( $image, 255, 255, 255, 22 ) );
+			imagefilledroundedrectangle( $image, $this->scale_value( 970, $scale ), $this->scale_value( 468, $scale ), $this->scale_value( 1240, $scale ), $this->scale_value( 543, $scale ), $this->scale_value( 18, $scale ), imagecolorallocatealpha( $image, 255, 255, 255, 26 ) );
 			$this->draw_text(
 				$image,
 				array(
 					'text'      => $samples['headline'],
-					'x'         => 990,
-					'y'         => 292,
-					'size'      => 34,
+					'x'         => $this->scale_value( 990, $scale ),
+					'y'         => $this->scale_value( 292, $scale ),
+					'size'      => $this->scale_value( 34, $scale ),
 					'color'     => $deep,
 					'font_path' => $data['font_path'],
 					'builtin'   => 5,
@@ -336,9 +339,9 @@ class KFI_Featured_Image {
 				$image,
 				array(
 					'text'      => 'UI preview',
-					'x'         => 990,
-					'y'         => 404,
-					'size'      => 24,
+					'x'         => $this->scale_value( 990, $scale ),
+					'y'         => $this->scale_value( 404, $scale ),
+					'size'      => $this->scale_value( 24, $scale ),
 					'color'     => $soft_dark,
 					'font_path' => '',
 					'builtin'   => 4,
@@ -349,9 +352,9 @@ class KFI_Featured_Image {
 				$image,
 				array(
 					'text'      => $samples['headline'],
-					'x'         => 120,
-					'y'         => $theme['specimen_y'],
-					'size'      => $theme['specimen_size'],
+					'x'         => $this->scale_value( 120, $scale ),
+					'y'         => $this->scale_value( $theme['specimen_y'], $scale ),
+					'size'      => $this->scale_value( $theme['specimen_size'], $scale ),
 					'color'     => $deep,
 					'font_path' => $data['font_path'],
 					'builtin'   => 5,
@@ -359,43 +362,36 @@ class KFI_Featured_Image {
 			);
 		}
 
-		imagefilledroundedrectangle( $image, 1110, 640, 1450, 726, 22, $accent );
+		imagefilledroundedrectangle( $image, $this->scale_value( 1110, $scale ), $this->scale_value( 640, $scale ), $this->scale_value( 1450, $scale ), $this->scale_value( 726, $scale ), $this->scale_value( 22, $scale ), $accent );
 		$this->draw_text(
 			$image,
 			array(
 				'text'      => 'Commercial Use',
-				'x'         => 1180,
-				'y'         => 696,
-				'size'      => 26,
+				'x'         => $this->scale_value( 1180, $scale ),
+				'y'         => $this->scale_value( 696, $scale ),
+				'size'      => $this->scale_value( 26, $scale ),
 				'color'     => $white,
 				'font_path' => '',
 				'builtin'   => 5,
 			)
 		);
 
-		imagefilledellipse( $image, 1360, 250, 160, 160, $shape_b );
-		imagefilledellipse( $image, 1360, 250, 110, 110, $white );
+		imagefilledellipse( $image, $this->scale_value( 1360, $scale ), $this->scale_value( 250, $scale ), $this->scale_value( 160, $scale ), $this->scale_value( 160, $scale ), $shape_b );
+		imagefilledellipse( $image, $this->scale_value( 1360, $scale ), $this->scale_value( 250, $scale ), $this->scale_value( 110, $scale ), $this->scale_value( 110, $scale ), $white );
 		$this->draw_text(
 			$image,
 			array(
 				'text'      => $samples['badge'],
-				'x'         => 1316,
-				'y'         => 282,
-				'size'      => 56,
+				'x'         => $this->scale_value( 1316, $scale ),
+				'y'         => $this->scale_value( 282, $scale ),
+				'size'      => $this->scale_value( 56, $scale ),
 				'color'     => $deep,
 				'font_path' => $data['font_path'],
 				'builtin'   => 5,
 			)
 		);
 
-		$result = imagepng( $image, $target_path );
-		imagedestroy( $image );
-
-		if ( ! $result ) {
-			return new WP_Error( 'kfi_featured_write_failed', 'Unable to write generated featured image.' );
-		}
-
-		return true;
+		return $this->finalize_image( $image, $target_path, $width, $height, 'kfi_featured_write_failed', 'Unable to write generated featured image.' );
 	}
 
 	/**
@@ -410,9 +406,12 @@ class KFI_Featured_Image {
 			return new WP_Error( 'kfi_specimen_no_gd', 'GD extension is required to generate specimen images.' );
 		}
 
-		$width   = 1800;
-		$height  = 1080;
-		$image   = imagecreatetruecolor( $width, $height );
+		$width    = 1800;
+		$height   = 1080;
+		$scale    = 2;
+		$canvas_width = $width * $scale;
+		$canvas_height = $height * $scale;
+		$image    = $this->create_canvas( $canvas_width, $canvas_height );
 		$theme   = $this->get_category_theme( $data['category'] );
 		$samples = $this->get_specimen_samples( $data['subsets'], $data['font_name'] );
 
@@ -422,13 +421,13 @@ class KFI_Featured_Image {
 
 		imageantialias( $image, true );
 
-		for ( $y = 0; $y < $height; $y++ ) {
-			$ratio = $y / max( 1, $height - 1 );
+		for ( $y = 0; $y < $canvas_height; $y++ ) {
+			$ratio = $y / max( 1, $canvas_height - 1 );
 			$red   = (int) round( $theme['bg_start'][0] + ( $theme['bg_end'][0] - $theme['bg_start'][0] ) * $ratio );
 			$green = (int) round( $theme['bg_start'][1] + ( $theme['bg_end'][1] - $theme['bg_start'][1] ) * $ratio );
 			$blue  = (int) round( $theme['bg_start'][2] + ( $theme['bg_end'][2] - $theme['bg_start'][2] ) * $ratio );
 			$line  = imagecolorallocate( $image, $red, $green, $blue );
-			imageline( $image, 0, $y, $width, $y, $line );
+			imageline( $image, 0, $y, $canvas_width, $y, $line );
 		}
 
 		$deep      = imagecolorallocate( $image, $theme['deep'][0], $theme['deep'][1], $theme['deep'][2] );
@@ -437,19 +436,19 @@ class KFI_Featured_Image {
 		$panel     = imagecolorallocatealpha( $image, 255, 255, 255, 22 );
 		$line      = imagecolorallocatealpha( $image, $theme['line'][0], $theme['line'][1], $theme['line'][2], 44 );
 
-		imagefilledellipse( $image, 1510, 130, 500, 500, imagecolorallocatealpha( $image, $theme['shape_a'][0], $theme['shape_a'][1], $theme['shape_a'][2], $theme['shape_a_alpha'] ) );
-		imagefilledellipse( $image, 260, 950, 380, 380, imagecolorallocatealpha( $image, $theme['shape_b'][0], $theme['shape_b'][1], $theme['shape_b'][2], $theme['shape_b_alpha'] ) );
+		imagefilledellipse( $image, $this->scale_value( 1510, $scale ), $this->scale_value( 130, $scale ), $this->scale_value( 500, $scale ), $this->scale_value( 500, $scale ), imagecolorallocatealpha( $image, $theme['shape_a'][0], $theme['shape_a'][1], $theme['shape_a'][2], $theme['shape_a_alpha'] ) );
+		imagefilledellipse( $image, $this->scale_value( 260, $scale ), $this->scale_value( 950, $scale ), $this->scale_value( 380, $scale ), $this->scale_value( 380, $scale ), imagecolorallocatealpha( $image, $theme['shape_b'][0], $theme['shape_b'][1], $theme['shape_b'][2], $theme['shape_b_alpha'] ) );
 
-		imagefilledroundedrectangle( $image, 74, 76, 1726, 1004, 32, $panel );
-		imagerectangle( $image, 74, 76, 1726, 1004, $line );
+		imagefilledroundedrectangle( $image, $this->scale_value( 74, $scale ), $this->scale_value( 76, $scale ), $this->scale_value( 1726, $scale ), $this->scale_value( 1004, $scale ), $this->scale_value( 32, $scale ), $panel );
+		imagerectangle( $image, $this->scale_value( 74, $scale ), $this->scale_value( 76, $scale ), $this->scale_value( 1726, $scale ), $this->scale_value( 1004, $scale ), $line );
 
 		$this->draw_text(
 			$image,
 			array(
 				'text'      => 'KREATIV FONT',
-				'x'         => 120,
-				'y'         => 160,
-				'size'      => 24,
+				'x'         => $this->scale_value( 120, $scale ),
+				'y'         => $this->scale_value( 160, $scale ),
+				'size'      => $this->scale_value( 24, $scale ),
 				'color'     => $accent,
 				'font_path' => '',
 				'builtin'   => 5,
@@ -460,9 +459,9 @@ class KFI_Featured_Image {
 			$image,
 			array(
 				'text'      => sprintf( '%s Character Specimen', $data['font_name'] ),
-				'x'         => 120,
-				'y'         => 250,
-				'size'      => 50,
+				'x'         => $this->scale_value( 120, $scale ),
+				'y'         => $this->scale_value( 250, $scale ),
+				'size'      => $this->scale_value( 50, $scale ),
 				'color'     => $deep,
 				'font_path' => '',
 				'builtin'   => 5,
@@ -473,16 +472,16 @@ class KFI_Featured_Image {
 			$image,
 			array(
 				'text'      => 'Rendered preview image generated locally from the imported font package.',
-				'x'         => 120,
-				'y'         => 320,
-				'size'      => 24,
+				'x'         => $this->scale_value( 120, $scale ),
+				'y'         => $this->scale_value( 320, $scale ),
+				'size'      => $this->scale_value( 24, $scale ),
 				'color'     => $soft_dark,
 				'font_path' => '',
 				'builtin'   => 4,
 			)
 		);
 
-		imagefilledroundedrectangle( $image, 120, 380, 1680, 930, 28, imagecolorallocatealpha( $image, 255, 255, 255, 18 ) );
+		imagefilledroundedrectangle( $image, $this->scale_value( 120, $scale ), $this->scale_value( 380, $scale ), $this->scale_value( 1680, $scale ), $this->scale_value( 930, $scale ), $this->scale_value( 28, $scale ), imagecolorallocatealpha( $image, 255, 255, 255, 18 ) );
 
 		$headline = sanitize_text_field( $samples['headline'] );
 		$lines    = array_filter( array_map( 'trim', explode( "\n", (string) $samples['characters'] ) ) );
@@ -491,42 +490,122 @@ class KFI_Featured_Image {
 			$image,
 			array(
 				'text'      => $headline,
-				'x'         => 160,
-				'y'         => 500,
-				'size'      => 58,
+				'x'         => $this->scale_value( 160, $scale ),
+				'y'         => $this->scale_value( 500, $scale ),
+				'size'      => $this->scale_value( 58, $scale ),
 				'color'     => $deep,
 				'font_path' => $data['font_path'],
 				'builtin'   => 5,
 			)
 		);
 
-		$current_y = 610;
+		$current_y = $this->scale_value( 610, $scale );
 
 		foreach ( array_slice( $lines, 0, 4 ) as $line_text ) {
 			$this->draw_text(
 				$image,
 				array(
 					'text'      => sanitize_text_field( $line_text ),
-					'x'         => 160,
+					'x'         => $this->scale_value( 160, $scale ),
 					'y'         => $current_y,
-					'size'      => 34,
+					'size'      => $this->scale_value( 34, $scale ),
 					'color'     => $soft_dark,
 					'font_path' => $data['font_path'],
 					'builtin'   => 4,
 				)
 			);
 
-			$current_y += 86;
+			$current_y += $this->scale_value( 86, $scale );
 		}
 
-		$result = imagepng( $image, $target_path );
-		imagedestroy( $image );
+		return $this->finalize_image( $image, $target_path, $width, $height, 'kfi_specimen_write_failed', 'Unable to write specimen image.' );
+	}
+
+	/**
+	 * Create a high-quality GD canvas with alpha preservation.
+	 *
+	 * @param int $width  Canvas width.
+	 * @param int $height Canvas height.
+	 * @return resource|false
+	 */
+	private function create_canvas( $width, $height ) {
+		$canvas = imagecreatetruecolor( $width, $height );
+
+		if ( ! $canvas ) {
+			return false;
+		}
+
+		imagealphablending( $canvas, true );
+		imagesavealpha( $canvas, true );
+
+		return $canvas;
+	}
+
+	/**
+	 * Downsample and write a PNG image with optional sharpening.
+	 *
+	 * @param resource $source        Source image.
+	 * @param string   $target_path   Output file.
+	 * @param int      $target_width  Final width.
+	 * @param int      $target_height Final height.
+	 * @param string   $error_code    WP_Error code.
+	 * @param string   $error_message WP_Error message.
+	 * @return true|WP_Error
+	 */
+	private function finalize_image( $source, $target_path, $target_width, $target_height, $error_code, $error_message ) {
+		$final = $this->create_canvas( $target_width, $target_height );
+
+		if ( ! $final ) {
+			imagedestroy( $source );
+			return new WP_Error( $error_code, $error_message );
+		}
+
+		imagecopyresampled(
+			$final,
+			$source,
+			0,
+			0,
+			0,
+			0,
+			$target_width,
+			$target_height,
+			imagesx( $source ),
+			imagesy( $source )
+		);
+
+		if ( function_exists( 'imageconvolution' ) ) {
+			@imageconvolution(
+				$final,
+				array(
+					array( -1, -1, -1 ),
+					array( -1, 16, -1 ),
+					array( -1, -1, -1 ),
+				),
+				8,
+				0
+			);
+		}
+
+		$result = imagepng( $final, $target_path, 6 );
+		imagedestroy( $source );
+		imagedestroy( $final );
 
 		if ( ! $result ) {
-			return new WP_Error( 'kfi_specimen_write_failed', 'Unable to write specimen image.' );
+			return new WP_Error( $error_code, $error_message );
 		}
 
 		return true;
+	}
+
+	/**
+	 * Scale a numeric layout value for supersampled rendering.
+	 *
+	 * @param int|float $value Value.
+	 * @param int       $scale Scale factor.
+	 * @return int
+	 */
+	private function scale_value( $value, $scale ) {
+		return (int) round( $value * $scale );
 	}
 
 	/**
