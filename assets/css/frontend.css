@@ -179,118 +179,42 @@
 	color: #4f4b66;
 }
 
-.kfi-control {
-	display: grid;
-	gap: 0.5rem;
-}
-
-.kfi-control span {
-	color: #2f294a;
-	font-size: 0.9rem;
-	font-weight: 600;
-}
-
-.kfi-preview-input {
-	border: 1px solid #d7d0f5;
-	border-radius: 14px;
-	min-height: 72px;
-	padding: 0.8rem 1rem;
-	resize: vertical;
-}
-
-.kfi-control-grid {
-	align-items: center;
-	display: grid;
-	gap: 1rem;
-	grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.kfi-preview-presets {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.65rem;
-	justify-content: center;
-}
-
-.kfi-preview-preset {
-	background: #fff;
-	border: 1px solid #ddd5fb;
-	border-radius: 999px;
-	color: #5f46bf;
-	cursor: pointer;
-	font-size: 0.88rem;
-	font-weight: 600;
-	padding: 0.55rem 0.9rem;
-}
-
-.kfi-preview-preset.is-active {
-	background: linear-gradient(90deg, #6e46ff 0%, #fb3b7a 100%);
-	border-color: transparent;
-	color: #fff;
-}
-
-.kfi-preview-size-readout {
-	background: linear-gradient(135deg, #f0ebff 0%, #fff 100%);
-	border: 1px solid #d7d0f5;
-	border-radius: 999px;
-	color: #5328b6;
-	font-weight: 700;
-	min-width: 78px;
-	padding: 0.55rem 0.9rem;
-	text-align: center;
-}
-
-.kfi-preview-stage {
+.kfi-specimen-image-shell {
 	background:
 		radial-gradient(circle at top left, rgba(138, 85, 255, 0.12), transparent 28%),
 		linear-gradient(180deg, #faf8ff 0%, #ffffff 100%);
 	border: 1px solid #e6defc;
 	border-radius: 18px;
-	min-height: 160px;
-	padding: 1.15rem 1.25rem;
+	overflow: hidden;
 }
 
-.kfi-preview-sample {
-	color: #1f1838;
-	font-size: 42px;
-	line-height: 1.15;
-	margin: 0;
-	word-break: break-word;
+.kfi-specimen-image {
+	display: block;
+	height: auto;
+	width: 100%;
 }
 
-.kfi-specimen-grid {
-	display: grid;
-	gap: 1rem;
-	grid-template-columns: repeat(3, minmax(0, 1fr));
+.kfi-specimen-fallback {
+	background:
+		radial-gradient(circle at top left, rgba(138, 85, 255, 0.12), transparent 28%),
+		linear-gradient(180deg, #faf8ff 0%, #ffffff 100%);
+	border: 1px solid #e6defc;
+	border-radius: 18px;
+	padding: 1.25rem 1.4rem;
 }
 
-.kfi-specimen-card {
-	background: linear-gradient(180deg, #faf8ff 0%, #fff 100%);
-	border: 1px solid #ece4ff;
-	border-radius: 16px;
-	padding: 1rem;
-}
-
-.kfi-specimen-headline {
-	color: #231a43;
-	font-size: 2.4rem;
-	line-height: 1.05;
-	margin: 0;
-}
-
-.kfi-specimen-body {
-	color: #4d4965;
-	font-size: 1rem;
-	line-height: 1.7;
-	margin: 0;
-}
-
-.kfi-specimen-characters {
+.kfi-specimen-fallback p {
 	color: #241c43;
-	font-size: 1.15rem;
+	font-size: 1.1rem;
 	line-height: 1.5;
-	margin: 0.15rem 0;
+	margin: 0.25rem 0;
 	word-break: break-word;
+}
+
+.kfi-specimen-fallback p:first-child {
+	font-size: 2rem;
+	line-height: 1.1;
+	margin-bottom: 0.85rem;
 }
 
 .kfi-bottom-cta {
@@ -328,19 +252,9 @@
 
 @media (max-width: 768px) {
 	.kfi-hero-card,
-	.kfi-specimen-grid,
 	.kfi-bottom-cta,
-	.kfi-control-grid,
 	.kfi-hero-stat-grid,
 	.kfi-info-grid {
 		grid-template-columns: 1fr;
-	}
-
-	.kfi-preview-sample {
-		font-size: 38px;
-	}
-
-	.kfi-specimen-headline {
-		font-size: 2rem;
 	}
 }

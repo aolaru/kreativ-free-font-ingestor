@@ -86,9 +86,77 @@ class KFI_Featured_Image {
 
 		set_post_thumbnail( $post_id, $attachment_id );
 		update_post_meta( $post_id, '_kfi_featured_image_placeholder', 0 );
+
+		$specimen = $this->generate_specimen_for_post( $post_id, $download, $font, $force );
+
+		if ( is_wp_error( $specimen ) ) {
+			$this->logger->error( sprintf( 'Generated featured image for post #%d, but specimen image failed: %s', $post_id, $specimen->get_error_message() ) );
+		}
+
 		$this->logger->info( sprintf( 'Generated featured image for post #%d.', $post_id ) );
 
 		return $attachment_id;
+	}
+
+	/**
+	 * Generate and store a specimen image for the imported post.
+	 *
+	 * @param int                  $post_id  Post ID.
+	 * @param array<string, mixed> $download Download data.
+	 * @param array<string, mixed> $font     Font data.
+	 * @param bool                 $force    Force regeneration.
+	 * @return array<string, string>|WP_Error
+	 */
+	public function generate_specimen_for_post( $post_id, array $download, array $font, $force = false ) {
+		$post_id = absint( $post_id );
+
+		if ( ! $post_id ) {
+			return new WP_Error( 'kfi_specimen_invalid_post', 'Invalid post ID for specimen image generation.' );
+		}
+
+		$paths        = $this->logger->get_upload_paths();
+		$preview_dir  = trailingslashit( $paths['base_dir'] ) . 'previews/';
+		$preview_url  = trailingslashit( $paths['base_url'] ) . 'previews/';
+		$font_name    = sanitize_text_field( $download['font_name'] );
+		$font_slug    = sanitize_title( $font_name );
+		$image_path   = $preview_dir . $font_slug . '-specimen.png';
+		$image_url    = $preview_url . $font_slug . '-specimen.png';
+		$font_path    = $this->get_renderable_font_path( $download['files'] );
+
+		if ( file_exists( $image_path ) && ! $force ) {
+			update_post_meta( $post_id, '_kfi_specimen_image_url', esc_url_raw( $image_url ) );
+			update_post_meta( $post_id, '_kfi_specimen_image_path', sanitize_text_field( $image_path ) );
+
+			return array(
+				'url'  => $image_url,
+				'path' => $image_path,
+			);
+		}
+
+		wp_mkdir_p( $preview_dir );
+		$this->ensure_preview_index( $preview_dir );
+
+		$generated = $this->render_specimen_image(
+			$image_path,
+			array(
+				'font_name' => $font_name,
+				'category'  => isset( $font['category'] ) ? sanitize_text_field( $font['category'] ) : 'Sans Serif',
+				'font_path' => $font_path,
+				'subsets'   => isset( $font['subsets'] ) && is_array( $font['subsets'] ) ? array_map( 'sanitize_text_field', $font['subsets'] ) : array( 'latin' ),
+			)
+		);
+
+		if ( is_wp_error( $generated ) ) {
+			return $generated;
+		}
+
+		update_post_meta( $post_id, '_kfi_specimen_image_url', esc_url_raw( $image_url ) );
+		update_post_meta( $post_id, '_kfi_specimen_image_path', sanitize_text_field( $image_path ) );
+
+		return array(
+			'url'  => $image_url,
+			'path' => $image_path,
+		);
 	}
 
 	/**
@@ -325,6 +393,137 @@ class KFI_Featured_Image {
 
 		if ( ! $result ) {
 			return new WP_Error( 'kfi_featured_write_failed', 'Unable to write generated featured image.' );
+		}
+
+		return true;
+	}
+
+	/**
+	 * Render a static character specimen image.
+	 *
+	 * @param string               $target_path Output path.
+	 * @param array<string,string> $data        Render data.
+	 * @return true|WP_Error
+	 */
+	private function render_specimen_image( $target_path, array $data ) {
+		if ( ! function_exists( 'imagecreatetruecolor' ) ) {
+			return new WP_Error( 'kfi_specimen_no_gd', 'GD extension is required to generate specimen images.' );
+		}
+
+		$width   = 1600;
+		$height  = 860;
+		$image   = imagecreatetruecolor( $width, $height );
+		$theme   = $this->get_category_theme( $data['category'] );
+		$samples = $this->get_specimen_samples( $data['subsets'], $data['font_name'] );
+
+		if ( ! $image ) {
+			return new WP_Error( 'kfi_specimen_create_failed', 'Unable to create specimen image canvas.' );
+		}
+
+		imageantialias( $image, true );
+
+		for ( $y = 0; $y < $height; $y++ ) {
+			$ratio = $y / max( 1, $height - 1 );
+			$red   = (int) round( $theme['bg_start'][0] + ( $theme['bg_end'][0] - $theme['bg_start'][0] ) * $ratio );
+			$green = (int) round( $theme['bg_start'][1] + ( $theme['bg_end'][1] - $theme['bg_start'][1] ) * $ratio );
+			$blue  = (int) round( $theme['bg_start'][2] + ( $theme['bg_end'][2] - $theme['bg_start'][2] ) * $ratio );
+			$line  = imagecolorallocate( $image, $red, $green, $blue );
+			imageline( $image, 0, $y, $width, $y, $line );
+		}
+
+		$deep      = imagecolorallocate( $image, $theme['deep'][0], $theme['deep'][1], $theme['deep'][2] );
+		$soft_dark = imagecolorallocate( $image, $theme['soft_dark'][0], $theme['soft_dark'][1], $theme['soft_dark'][2] );
+		$accent    = imagecolorallocate( $image, $theme['accent'][0], $theme['accent'][1], $theme['accent'][2] );
+		$panel     = imagecolorallocatealpha( $image, 255, 255, 255, 22 );
+		$line      = imagecolorallocatealpha( $image, $theme['line'][0], $theme['line'][1], $theme['line'][2], 44 );
+
+		imagefilledellipse( $image, 1330, 120, 430, 430, imagecolorallocatealpha( $image, $theme['shape_a'][0], $theme['shape_a'][1], $theme['shape_a'][2], $theme['shape_a_alpha'] ) );
+		imagefilledellipse( $image, 250, 770, 340, 340, imagecolorallocatealpha( $image, $theme['shape_b'][0], $theme['shape_b'][1], $theme['shape_b'][2], $theme['shape_b_alpha'] ) );
+
+		imagefilledroundedrectangle( $image, 72, 74, 1528, 786, 28, $panel );
+		imagerectangle( $image, 72, 74, 1528, 786, $line );
+
+		$this->draw_text(
+			$image,
+			array(
+				'text'      => 'KREATIV FONT',
+				'x'         => 120,
+				'y'         => 150,
+				'size'      => 24,
+				'color'     => $accent,
+				'font_path' => '',
+				'builtin'   => 5,
+			)
+		);
+
+		$this->draw_text(
+			$image,
+			array(
+				'text'      => sprintf( '%s Character Specimen', $data['font_name'] ),
+				'x'         => 120,
+				'y'         => 245,
+				'size'      => 48,
+				'color'     => $deep,
+				'font_path' => '',
+				'builtin'   => 5,
+			)
+		);
+
+		$this->draw_text(
+			$image,
+			array(
+				'text'      => 'Rendered preview image generated locally from the imported font package.',
+				'x'         => 120,
+				'y'         => 310,
+				'size'      => 24,
+				'color'     => $soft_dark,
+				'font_path' => '',
+				'builtin'   => 4,
+			)
+		);
+
+		imagefilledroundedrectangle( $image, 120, 360, 1480, 690, 24, imagecolorallocatealpha( $image, 255, 255, 255, 20 ) );
+
+		$headline = sanitize_text_field( $samples['headline'] );
+		$lines    = array_filter( array_map( 'trim', explode( "\n", (string) $samples['characters'] ) ) );
+
+		$this->draw_text(
+			$image,
+			array(
+				'text'      => $headline,
+				'x'         => 160,
+				'y'         => 470,
+				'size'      => 64,
+				'color'     => $deep,
+				'font_path' => $data['font_path'],
+				'builtin'   => 5,
+			)
+		);
+
+		$current_y = 560;
+
+		foreach ( array_slice( $lines, 0, 3 ) as $line_text ) {
+			$this->draw_text(
+				$image,
+				array(
+					'text'      => sanitize_text_field( $line_text ),
+					'x'         => 160,
+					'y'         => $current_y,
+					'size'      => 38,
+					'color'     => $soft_dark,
+					'font_path' => $data['font_path'],
+					'builtin'   => 4,
+				)
+			);
+
+			$current_y += 72;
+		}
+
+		$result = imagepng( $image, $target_path );
+		imagedestroy( $image );
+
+		if ( ! $result ) {
+			return new WP_Error( 'kfi_specimen_write_failed', 'Unable to write specimen image.' );
 		}
 
 		return true;

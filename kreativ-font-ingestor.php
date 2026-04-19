@@ -726,6 +726,12 @@ final class KFI_Plugin {
 			$download['webfont_kit'] = $webfont_kit;
 		}
 
+		$specimen = $this->featured_image->generate_specimen_for_post( $post_id, $download, $font, true );
+
+		if ( is_wp_error( $specimen ) ) {
+			return $specimen;
+		}
+
 		$zip_file = $this->build_or_refresh_zip_payload( $download );
 
 		if ( is_wp_error( $zip_file ) ) {

@@ -204,17 +204,16 @@ if ( ! function_exists( 'kfi_render_post_template' ) ) {
 		$use_cases           = sprintf( '%1$s works well for headings, UI labels, social graphics, landing pages, and lightweight brand systems where a reliable %2$s style is needed.', $font_name, $category );
 		$pairing_copy        = sprintf( 'Pair %1$s with a neutral sans serif for product interfaces, or combine it with a higher-contrast display family when you need more hierarchy in editorial layouts.', $font_name );
 		$language_copy = sprintf( 'This package includes subsets reported by Google Fonts: %s. Always verify glyph coverage against your specific production language set before launch.', $subsets );
-		$samples        = kfi_get_specimen_samples( $subset_list, $font_name );
-		$style_specimen = $samples['headline'];
-		$body_specimen  = $samples['paragraph'];
+		$samples         = kfi_get_specimen_samples( $subset_list, $font_name );
+		$style_specimen  = $samples['headline'];
+		$body_specimen   = $samples['paragraph'];
 		$number_specimen = $samples['characters'];
-		$logo_specimen  = $samples['logo'];
-		$text_direction = $samples['direction'];
 		$show_affiliate = ! empty( trim( wp_strip_all_tags( $affiliate ) ) );
 		$related_posts  = $post_id ? kfi_get_related_font_posts( $post_id, $font ) : array();
 		$download_url   = $zip['zip_url'];
 		$webfont_url    = $post_id ? esc_url_raw( get_post_meta( $post_id, '_kfi_webfont_zip_url', true ) ) : '';
 		$webfont_size   = $post_id ? sanitize_text_field( get_post_meta( $post_id, '_kfi_webfont_zip_size_human', true ) ) : '';
+		$specimen_url   = $post_id ? esc_url_raw( get_post_meta( $post_id, '_kfi_specimen_image_url', true ) ) : '';
 
 		if ( $post_id && class_exists( 'KFI_Plugin' ) ) {
 			$download_url = KFI_Plugin::instance()->get_download_tracker()->get_download_url( $post_id, $zip['zip_url'], 'zip' );
@@ -270,44 +269,21 @@ if ( ! function_exists( 'kfi_render_post_template' ) ) {
 
 			<section class="kfi-preview-card">
 				<div class="kfi-preview-header">
-					<h2>Live Font Preview</h2>
-					<p>Switch between specimen modes, type your own copy, and evaluate how the downloaded font feels before saving the ZIP.</p>
+					<h2><?php echo esc_html( $font_name ); ?> Character Specimen</h2>
+					<p>Rendered preview image generated from the imported font package. Use it as a quick visual reference before downloading the archive.</p>
 				</div>
-					<div class="kfi-preview-presets" role="group" aria-label="Preview presets">
-						<button type="button" class="kfi-preview-preset is-active" data-preview-text="<?php echo esc_attr( $style_specimen ); ?>">Headline</button>
-						<button type="button" class="kfi-preview-preset" data-preview-text="<?php echo esc_attr( $body_specimen ); ?>">Paragraph</button>
-						<button type="button" class="kfi-preview-preset" data-preview-text="<?php echo esc_attr( $number_specimen ); ?>">Numbers</button>
-						<button type="button" class="kfi-preview-preset" data-preview-text="<?php echo esc_attr( $logo_specimen ); ?>">Logo</button>
+				<?php if ( $specimen_url ) : ?>
+					<div class="kfi-specimen-image-shell">
+						<img class="kfi-specimen-image" src="<?php echo esc_url( $specimen_url ); ?>" alt="<?php echo esc_attr( $font_name . ' character specimen' ); ?>" loading="lazy" />
 					</div>
-				<label class="kfi-control">
-					<textarea class="kfi-preview-input" rows="2"><?php echo esc_textarea( $style_specimen ); ?></textarea>
-				</label>
-				<div class="kfi-control-grid">
-					<label class="kfi-control">
-						<span>Preview Size</span>
-						<input class="kfi-preview-size" type="range" min="22" max="96" step="2" value="42" />
-					</label>
-					<div class="kfi-preview-size-readout" aria-live="polite">42px</div>
-				</div>
-					<div class="kfi-preview-stage" data-font-family="<?php echo esc_attr( $font_name ); ?>" data-preview-stage dir="<?php echo esc_attr( $text_direction ); ?>">
-						<p class="kfi-preview-sample"><?php echo esc_html( $style_specimen ); ?></p>
+				<?php else : ?>
+					<div class="kfi-specimen-fallback">
+						<p><?php echo esc_html( $style_specimen ); ?></p>
+						<?php foreach ( explode( "\n", $number_specimen ) as $character_line ) : ?>
+							<p><?php echo esc_html( $character_line ); ?></p>
+						<?php endforeach; ?>
 					</div>
-					<div class="kfi-specimen-grid">
-						<div class="kfi-specimen-card" data-font-family="<?php echo esc_attr( $font_name ); ?>" dir="<?php echo esc_attr( $text_direction ); ?>">
-							<p class="kfi-specimen-label">Headline</p>
-							<p class="kfi-specimen-headline"><?php echo esc_html( $font_name ); ?></p>
-						</div>
-						<div class="kfi-specimen-card" data-font-family="<?php echo esc_attr( $font_name ); ?>" dir="<?php echo esc_attr( $text_direction ); ?>">
-							<p class="kfi-specimen-label">Paragraph</p>
-							<p class="kfi-specimen-body"><?php echo esc_html( $body_specimen ); ?></p>
-						</div>
-						<div class="kfi-specimen-card" data-font-family="<?php echo esc_attr( $font_name ); ?>" dir="<?php echo esc_attr( $text_direction ); ?>">
-							<p class="kfi-specimen-label">Characters</p>
-							<?php foreach ( explode( "\n", $number_specimen ) as $character_line ) : ?>
-								<p class="kfi-specimen-characters"><?php echo esc_html( $character_line ); ?></p>
-							<?php endforeach; ?>
-						</div>
-					</div>
+				<?php endif; ?>
 			</section>
 
 			<section class="kfi-description">
