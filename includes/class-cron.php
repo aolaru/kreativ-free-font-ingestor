@@ -90,7 +90,7 @@ class KFI_Cron {
 			return;
 		}
 
-		$limit = isset( $settings['import_limit'] ) ? absint( $settings['import_limit'] ) : 10;
+		$limit = isset( $settings['import_limit'] ) ? absint( $settings['import_limit'] ) : 3;
 		$this->plugin->run_import( $limit, false );
 	}
 }

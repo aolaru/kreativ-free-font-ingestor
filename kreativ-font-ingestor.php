@@ -179,11 +179,37 @@ final class KFI_Plugin {
 		$stored_version = get_option( 'kfi_db_version', '' );
 
 		if ( KFI_DB_VERSION === $stored_version ) {
+			$this->maybe_upgrade_settings();
 			return;
 		}
 
 		self::create_database_schema();
 		update_option( 'kfi_db_version', KFI_DB_VERSION );
+		$this->maybe_upgrade_settings();
+	}
+
+	/**
+	 * Normalize settings defaults for existing installs.
+	 *
+	 * @return void
+	 */
+	private function maybe_upgrade_settings() {
+		$settings = get_option( KFI_OPTION_SETTINGS, array() );
+
+		if ( ! is_array( $settings ) ) {
+			return;
+		}
+
+		$updated = false;
+
+		if ( ! isset( $settings['import_limit'] ) || in_array( absint( $settings['import_limit'] ), array( 5, 10 ), true ) ) {
+			$settings['import_limit'] = 3;
+			$updated                  = true;
+		}
+
+		if ( $updated ) {
+			update_option( KFI_OPTION_SETTINGS, $settings );
+		}
 	}
 
 	/**
@@ -207,7 +233,7 @@ final class KFI_Plugin {
 		$defaults = array(
 			'api_key'                    => '',
 			'cron_enabled'               => 1,
-			'import_limit'               => 10,
+			'import_limit'               => 3,
 			'category_id'                => 0,
 			'affiliate_html'             => '',
 			'taxonomy_parent_fonts'      => 'Fonts',
@@ -295,7 +321,7 @@ final class KFI_Plugin {
 				array(
 					'api_key'                  => '',
 					'cron_enabled'             => 1,
-					'import_limit'             => 10,
+					'import_limit'             => 3,
 					'category_id'              => 0,
 					'affiliate_html'           => '',
 					'taxonomy_parent_fonts'    => 'Fonts',
@@ -315,7 +341,7 @@ final class KFI_Plugin {
 	 * @param bool $manual Whether this is a manual run.
 	 * @return array<string, mixed>
 	 */
-	public function run_import( $limit = 10, $manual = false ) {
+	public function run_import( $limit = 3, $manual = false ) {
 		$limit    = max( 1, absint( $limit ) );
 		$settings = $this->get_settings();
 

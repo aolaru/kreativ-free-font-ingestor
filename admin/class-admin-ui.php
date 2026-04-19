@@ -140,7 +140,7 @@ class KFI_Admin_UI {
 		return array(
 			'api_key'                  => isset( $input['api_key'] ) ? sanitize_text_field( $input['api_key'] ) : '',
 			'cron_enabled'             => isset( $input['cron_enabled'] ) ? 1 : 0,
-			'import_limit'             => isset( $input['import_limit'] ) ? max( 1, absint( $input['import_limit'] ) ) : 10,
+			'import_limit'             => isset( $input['import_limit'] ) ? max( 1, absint( $input['import_limit'] ) ) : 3,
 			'category_id'              => isset( $input['category_id'] ) ? absint( $input['category_id'] ) : 0,
 			'taxonomy_parent_fonts'    => isset( $input['taxonomy_parent_fonts'] ) ? sanitize_text_field( $input['taxonomy_parent_fonts'] ) : 'Fonts',
 			'taxonomy_parent_designer' => isset( $input['taxonomy_parent_designer'] ) ? sanitize_text_field( $input['taxonomy_parent_designer'] ) : 'Designer',
@@ -188,7 +188,7 @@ class KFI_Admin_UI {
 		$settings = $this->plugin->get_settings();
 		?>
 		<input type="number" min="1" max="50" name="<?php echo esc_attr( KFI_OPTION_SETTINGS ); ?>[import_limit]" value="<?php echo esc_attr( $settings['import_limit'] ); ?>" />
-		<p class="description"><?php esc_html_e( 'Batch size for manual and scheduled imports.', 'kreativ-font-ingestor' ); ?></p>
+		<p class="description"><?php esc_html_e( 'Batch size for manual and scheduled imports. Default: 3 fonts every 6 hours.', 'kreativ-font-ingestor' ); ?></p>
 		<?php
 	}
 
@@ -255,7 +255,7 @@ class KFI_Admin_UI {
 		check_admin_referer( 'kfi_manual_import' );
 
 		$settings = $this->plugin->get_settings();
-		$limit    = isset( $settings['import_limit'] ) ? absint( $settings['import_limit'] ) : 10;
+		$limit    = isset( $settings['import_limit'] ) ? absint( $settings['import_limit'] ) : 3;
 		$results  = $this->plugin->run_import( $limit, true );
 
 		$query_args = array(

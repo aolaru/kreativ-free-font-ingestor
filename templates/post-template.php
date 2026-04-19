@@ -11,6 +11,37 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 if ( ! function_exists( 'kfi_render_post_template' ) ) {
 	/**
+	 * Build a shorter hero-friendly summary.
+	 *
+	 * @param string $text Source text.
+	 * @param string $fallback Fallback text.
+	 * @return string
+	 */
+	function kfi_get_hero_summary( $text, $fallback ) {
+		$text = trim( wp_strip_all_tags( (string) $text ) );
+
+		if ( '' === $text ) {
+			return $fallback;
+		}
+
+		$sentences = preg_split( '/(?<=[.!?])\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY );
+
+		if ( empty( $sentences ) ) {
+			return $fallback;
+		}
+
+		$summary = implode( ' ', array_slice( $sentences, 0, 2 ) );
+
+		if ( strlen( $summary ) > 240 ) {
+			$summary = substr( $summary, 0, 237 );
+			$summary = preg_replace( '/\s+\S*$/', '', $summary );
+			$summary .= '...';
+		}
+
+		return trim( $summary );
+	}
+
+	/**
 	 * Choose specimen samples based on the best available subset.
 	 *
 	 * @param array<int, string> $subsets Font subsets.
@@ -201,6 +232,10 @@ if ( ! function_exists( 'kfi_render_post_template' ) ) {
 		$axes_summary        = array();
 		$google_fonts_url    = ! empty( $font['google_fonts_url'] ) ? esc_url_raw( $font['google_fonts_url'] ) : '';
 		$description         = $repo_description ? $repo_description : sprintf( '%1$s is a %2$s Google Fonts family available for free download. This package preserves the original font files, includes the required OFL license, and is suitable for editorial, branding, interface, and commercial-use workflows that need clean redistribution records.', $font_name, $category );
+		$hero_description    = kfi_get_hero_summary(
+			$description,
+			sprintf( '%1$s is a %2$s Google Fonts family available for free download, with the original files preserved locally and packaged with the required OFL license.', $font_name, $category )
+		);
 		$use_cases           = sprintf( '%1$s works well for headings, UI labels, social graphics, landing pages, and lightweight brand systems where a reliable %2$s style is needed.', $font_name, $category );
 		$pairing_copy        = sprintf( 'Pair %1$s with a neutral sans serif for product interfaces, or combine it with a higher-contrast display family when you need more hierarchy in editorial layouts.', $font_name );
 		$language_copy = sprintf( 'This package includes subsets reported by Google Fonts: %s. Always verify glyph coverage against your specific production language set before launch.', $subsets );
@@ -243,26 +278,25 @@ if ( ! function_exists( 'kfi_render_post_template' ) ) {
 				<div class="kfi-hero-copy">
 					<p class="kfi-eyebrow">Free Font Download</p>
 					<h2><?php echo esc_html( $font_name ); ?> Font Package</h2>
-					<p><?php echo esc_html( $description ); ?></p>
+					<p class="kfi-hero-lead"><?php echo esc_html( $hero_description ); ?></p>
 					<div class="kfi-hero-stat-grid">
 						<div><strong><?php echo esc_html( ucfirst( $category ) ); ?></strong><span>Style</span></div>
 						<div><strong><?php echo esc_html( (string) $variant_count ); ?></strong><span>Variants</span></div>
 						<div><strong><?php echo esc_html( $zip_size ? $zip_size : 'ZIP Ready' ); ?></strong><span>Package Size</span></div>
 						<div><strong><?php echo esc_html( $subsets ); ?></strong><span>Subsets</span></div>
 						<div><strong>SIL OFL 1.1</strong><span>License</span></div>
-						<div><strong><?php echo esc_html( $zip['zip_name'] ); ?></strong><span>Archive File</span></div>
-						<div><strong><?php echo esc_html( (string) ( $variant_count + 2 ) ); ?></strong><span>Packaged Assets</span></div>
-						<div><strong>Fonts, OFL.txt, metadata.json</strong><span>Local Records</span></div>
-						<?php if ( $google_fonts_url ) : ?>
-							<div><strong><a href="<?php echo esc_url( $google_fonts_url ); ?>" rel="nofollow noopener" target="_blank">View on Google Fonts</a></strong><span>Source Family</span></div>
-						<?php endif; ?>
 					</div>
 					<div class="kfi-inline-cta-row">
 						<a class="button button-primary" href="<?php echo esc_url( $download_url ); ?>" rel="nofollow">Download <?php echo esc_html( $font_name ); ?> ZIP</a>
 						<?php if ( $webfont_url ) : ?>
 							<a class="button" href="<?php echo esc_url( $webfont_url ); ?>" rel="nofollow">Download Webfont Kit<?php echo esc_html( $webfont_size ? ' (' . $webfont_size . ')' : '' ); ?></a>
 						<?php endif; ?>
+					</div>
+					<div class="kfi-source-link-row">
 						<span class="kfi-inline-note">Original ZIP includes source files, OFL.txt, and metadata.json. Webfont kit includes a starter stylesheet for browser use.</span>
+						<?php if ( $google_fonts_url ) : ?>
+							<a class="kfi-source-link" href="<?php echo esc_url( $google_fonts_url ); ?>" rel="nofollow noopener" target="_blank">View on Google Fonts</a>
+						<?php endif; ?>
 					</div>
 				</div>
 			</section>
@@ -292,6 +326,11 @@ if ( ! function_exists( 'kfi_render_post_template' ) ) {
 				<?php if ( $article_copy ) : ?>
 					<p><?php echo esc_html( $article_copy ); ?></p>
 				<?php endif; ?>
+				<div class="kfi-package-meta-grid">
+					<div><strong><?php echo esc_html( $zip['zip_name'] ); ?></strong><span>Archive File</span></div>
+					<div><strong><?php echo esc_html( (string) ( $variant_count + 2 ) ); ?></strong><span>Packaged Assets</span></div>
+					<div><strong>Fonts, OFL.txt, metadata.json</strong><span>Local Records</span></div>
+				</div>
 				<ul>
 					<li><strong>Category:</strong> <?php echo esc_html( ucfirst( $category ) ); ?></li>
 					<li><strong>Available variants:</strong> <?php echo esc_html( $variants ); ?></li>
