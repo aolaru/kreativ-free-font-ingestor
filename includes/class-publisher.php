@@ -59,6 +59,7 @@ class KFI_Publisher {
 	public function create_post( array $font, array $download, array $zip_file, array $settings ) {
 		$font_name = sanitize_text_field( $download['font_name'] );
 		$template  = KFI_PLUGIN_DIR . 'templates/post-template.php';
+		$post_author = $this->get_default_post_author();
 
 		$existing_post = $this->get_existing_post_id( $font_name );
 
@@ -77,6 +78,7 @@ class KFI_Publisher {
 		$postarr = array(
 			'post_type'    => 'post',
 			'post_status'  => 'publish',
+			'post_author'  => $post_author,
 			'post_title'   => sprintf( '%s Font Free Download (Commercial Use)', $font_name ),
 			'post_content' => '',
 			'post_excerpt' => sprintf( 'Download %s font for free with commercial use details, licensing, and local ZIP package.', $font_name ),
@@ -124,6 +126,7 @@ class KFI_Publisher {
 		$post_id   = absint( $post_id );
 		$font_name = sanitize_text_field( $download['font_name'] );
 		$font_slug = sanitize_title( $font_name );
+		$post_author = $this->get_default_post_author();
 
 		if ( ! $post_id ) {
 			return new WP_Error( 'kfi_sync_invalid_post', 'Invalid post ID for sync.' );
@@ -133,6 +136,7 @@ class KFI_Publisher {
 			wp_slash(
 				array(
 					'ID'           => $post_id,
+					'post_author'  => $post_author,
 					'post_title'   => sprintf( '%s Font Free Download (Commercial Use)', $font_name ),
 					'post_excerpt' => sprintf( 'Download %s font for free with commercial use details, licensing, and local ZIP package.', $font_name ),
 					'post_name'    => sanitize_title( $font_name . ' font free download' ),
@@ -197,6 +201,22 @@ class KFI_Publisher {
 		$this->sync_generated_asset_meta( $post_id, $download, $preview_font );
 
 		return true;
+	}
+
+	/**
+	 * Resolve the default author for imported posts.
+	 *
+	 * @return int
+	 */
+	private function get_default_post_author() {
+		$author_id = 1;
+		$user      = get_user_by( 'id', $author_id );
+
+		if ( $user instanceof WP_User ) {
+			return (int) $author_id;
+		}
+
+		return (int) get_current_user_id();
 	}
 
 	/**
