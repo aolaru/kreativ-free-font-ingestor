@@ -198,7 +198,7 @@ class KFI_Featured_Image {
 		$samples    = $this->get_specimen_samples( $data['subsets'], $data['font_name'] );
 		$character_lines = array_values( array_filter( array_map( 'trim', explode( "\n", (string) $samples['characters'] ) ) ) );
 		$title_size = max( 72, min( 108, $theme['title_size'] - 26 ) );
-		$title_max_width = $this->scale_value( 760, $scale );
+		$title_max_width = $this->scale_value( 880, $scale );
 		$title_lines = $this->fit_text_to_lines( $data['font_name'], $data['font_path'], $this->scale_value( $title_size, $scale ), $title_max_width, 2 );
 		$title_y     = $this->scale_value( 300, $scale );
 		$specimen_size = 34;
@@ -217,7 +217,6 @@ class KFI_Featured_Image {
 		imagefilledellipse( $image, $this->scale_value( 1250, $scale ), $this->scale_value( 120, $scale ), $this->scale_value( $theme['hero_shape_w'], $scale ), $this->scale_value( $theme['hero_shape_h'], $scale ), $shape_a );
 		imagefilledellipse( $image, $this->scale_value( 220, $scale ), $this->scale_value( 760, $scale ), $this->scale_value( $theme['secondary_shape_w'], $scale ), $this->scale_value( $theme['secondary_shape_h'], $scale ), $shape_b );
 		imagefilledellipse( $image, $this->scale_value( 1460, $scale ), $this->scale_value( 760, $scale ), $this->scale_value( 520, $scale ), $this->scale_value( 520, $scale ), imagecolorallocatealpha( $image, $theme['accent'][0], $theme['accent'][1], $theme['accent'][2], 112 ) );
-		imagefilledroundedrectangle( $image, $this->scale_value( 112, $scale ), $this->scale_value( 586, $scale ), $this->scale_value( 720, $scale ), $this->scale_value( 760, $scale ), $this->scale_value( 28, $scale ), imagecolorallocatealpha( $image, $theme['accent'][0], $theme['accent'][1], $theme['accent'][2], 88 ) );
 		imagefilledrectangle( $image, $this->scale_value( 84, $scale ), $this->scale_value( 92, $scale ), $this->scale_value( 1516, $scale ), $this->scale_value( 808, $scale ), $panel_fill );
 
 		imagesetthickness( $image, $this->scale_value( 3, $scale ) );
@@ -270,7 +269,7 @@ class KFI_Featured_Image {
 			array(
 				'text'      => 'Free Download',
 				'x'         => $this->scale_value( 120, $scale ),
-				'y'         => $title_y + ( count( $title_lines ) * $this->scale_value( 96, $scale ) ) + $this->scale_value( 34, $scale ),
+				'y'         => $title_y + ( count( $title_lines ) * $this->scale_value( 96, $scale ) ) + $this->scale_value( 26, $scale ),
 				'size'      => $this->scale_value( 34, $scale ),
 				'color'     => $soft_dark,
 				'font_path' => '',
@@ -278,15 +277,15 @@ class KFI_Featured_Image {
 			)
 		);
 
-		imagefilledroundedrectangle( $image, $this->scale_value( 892, $scale ), $this->scale_value( 188, $scale ), $this->scale_value( 1456, $scale ), $this->scale_value( 636, $scale ), $this->scale_value( 30, $scale ), imagecolorallocatealpha( $image, 255, 255, 255, 24 ) );
-		imagefilledroundedrectangle( $image, $this->scale_value( 932, $scale ), $this->scale_value( 232, $scale ), $this->scale_value( 1418, $scale ), $this->scale_value( 396, $scale ), $this->scale_value( 20, $scale ), $white );
+		imagefilledroundedrectangle( $image, $this->scale_value( 120, $scale ), $this->scale_value( 430, $scale ), $this->scale_value( 1460, $scale ), $this->scale_value( 612, $scale ), $this->scale_value( 30, $scale ), imagecolorallocatealpha( $image, 255, 255, 255, 20 ) );
+		imagefilledroundedrectangle( $image, $this->scale_value( 160, $scale ), $this->scale_value( 466, $scale ), $this->scale_value( 1280, $scale ), $this->scale_value( 560, $scale ), $this->scale_value( 18, $scale ), $white );
 		foreach ( $specimen_lines as $index => $specimen_line ) {
 			$this->draw_text(
 				$image,
 				array(
 					'text'      => $specimen_line,
-					'x'         => $this->scale_value( 966, $scale ),
-					'y'         => $this->scale_value( 314, $scale ) + ( $index * $this->scale_value( 68, $scale ) ),
+					'x'         => $this->scale_value( 192, $scale ),
+					'y'         => $this->scale_value( 530, $scale ) + ( $index * $this->scale_value( 60, $scale ) ),
 					'size'      => $this->scale_value( $specimen_size, $scale ),
 					'color'     => $deep,
 					'font_path' => $data['font_path'],
@@ -298,8 +297,8 @@ class KFI_Featured_Image {
 			$image,
 			array(
 				'text'      => sprintf( '%s specimen', ucfirst( $data['category'] ) ),
-				'x'         => $this->scale_value( 966, $scale ),
-				'y'         => $this->scale_value( 470, $scale ),
+				'x'         => $this->scale_value( 192, $scale ),
+				'y'         => $this->scale_value( 494, $scale ),
 				'size'      => $this->scale_value( 20, $scale ),
 				'color'     => $accent,
 				'font_path' => '',
@@ -310,8 +309,8 @@ class KFI_Featured_Image {
 			$image,
 			array(
 				'text'      => sanitize_text_field( $samples['characters_line'] ),
-				'x'         => $this->scale_value( 966, $scale ),
-				'y'         => $this->scale_value( 532, $scale ),
+				'x'         => $this->scale_value( 1010, $scale ),
+				'y'         => $this->scale_value( 586, $scale ),
 				'size'      => $this->scale_value( 24, $scale ),
 				'color'     => $soft_dark,
 				'font_path' => $data['font_path'],
@@ -319,14 +318,15 @@ class KFI_Featured_Image {
 			)
 		);
 
+		imagefilledroundedrectangle( $image, $this->scale_value( 120, $scale ), $this->scale_value( 650, $scale ), $this->scale_value( 760, $scale ), $this->scale_value( 760, $scale ), $this->scale_value( 28, $scale ), imagecolorallocatealpha( $image, $theme['accent'][0], $theme['accent'][1], $theme['accent'][2], 36 ) );
 		$this->draw_text(
 			$image,
 			array(
 				'text'      => 'Character Set',
 				'x'         => $this->scale_value( 148, $scale ),
-				'y'         => $this->scale_value( 634, $scale ),
+				'y'         => $this->scale_value( 690, $scale ),
 				'size'      => $this->scale_value( 20, $scale ),
-				'color'     => $white,
+				'color'     => $deep,
 				'font_path' => '',
 				'builtin'   => 4,
 			)
@@ -337,9 +337,9 @@ class KFI_Featured_Image {
 				array(
 					'text'      => sanitize_text_field( $this->clip_text( $character_lines[0], 18 ) ),
 					'x'         => $this->scale_value( 148, $scale ),
-					'y'         => $this->scale_value( 694, $scale ),
+					'y'         => $this->scale_value( 742, $scale ),
 					'size'      => $this->scale_value( 26, $scale ),
-					'color'     => $white,
+					'color'     => $deep,
 					'font_path' => $data['font_path'],
 					'builtin'   => 5,
 				)
@@ -351,23 +351,23 @@ class KFI_Featured_Image {
 				array(
 					'text'      => sanitize_text_field( $this->clip_text( $character_lines[1], 18 ) ),
 					'x'         => $this->scale_value( 148, $scale ),
-					'y'         => $this->scale_value( 740, $scale ),
+					'y'         => $this->scale_value( 786, $scale ),
 					'size'      => $this->scale_value( 22, $scale ),
-					'color'     => $white,
+					'color'     => $soft_dark,
 					'font_path' => $data['font_path'],
 					'builtin'   => 5,
 				)
 			);
 		}
 
-		imagefilledroundedrectangle( $image, $this->scale_value( 1040, $scale ), $this->scale_value( 664, $scale ), $this->scale_value( 1450, $scale ), $this->scale_value( 754, $scale ), $this->scale_value( 22, $scale ), $accent );
+		imagefilledroundedrectangle( $image, $this->scale_value( 930, $scale ), $this->scale_value( 650, $scale ), $this->scale_value( 1450, $scale ), $this->scale_value( 760, $scale ), $this->scale_value( 24, $scale ), $accent );
 		$this->draw_text(
 			$image,
 			array(
 				'text'      => 'Commercial Use',
-				'x'         => $this->scale_value( 1142, $scale ),
-				'y'         => $this->scale_value( 722, $scale ),
-				'size'      => $this->scale_value( 26, $scale ),
+				'x'         => $this->scale_value( 1082, $scale ),
+				'y'         => $this->scale_value( 716, $scale ),
+				'size'      => $this->scale_value( 30, $scale ),
 				'color'     => $white,
 				'font_path' => '',
 				'builtin'   => 5,
