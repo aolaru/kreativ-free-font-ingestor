@@ -1,10 +1,10 @@
-=== Kreativ Font Ingestor ===
+=== Kreativ Free Fonts ===
 Contributors: kreativ
 Tags: fonts, google fonts, seo, importer, zip
 Requires at least: 6.2
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.0.5
+Stable tag: 1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -12,7 +12,7 @@ Imports open-source Google Fonts locally, bundles mandatory OFL licensing, gener
 
 == Description ==
 
-Kreativ Font Ingestor is built for font content websites that need a repeatable, compliant import workflow. It fetches font families from the Google Fonts Developer API, downloads local font assets, stores the mandatory OFL license file, creates ZIP packages, and publishes search-optimized posts automatically.
+Kreativ Free Fonts is built for font content websites that need a repeatable, compliant import workflow. It fetches font families from the Google Fonts Developer API, downloads local font assets, stores the mandatory OFL license file, creates ZIP packages, and publishes search-optimized posts automatically.
 
 Key features:
 
@@ -34,7 +34,7 @@ Key features:
 
 1. Upload the `kreativ-font-ingestor` folder to the `/wp-content/plugins/` directory.
 2. Activate the plugin through the `Plugins` screen in WordPress.
-3. Open `Kreativ Fonts` in the WordPress admin menu.
+3. Open `Free Fonts` in the WordPress admin menu.
 4. Add a valid Google Fonts Developer API key.
 5. Configure the import limit and cron preference.
 6. Run a manual import or allow WP-Cron to ingest fonts automatically.

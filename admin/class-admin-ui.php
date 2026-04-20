@@ -56,8 +56,8 @@ class KFI_Admin_UI {
 	 */
 	public function register_menu() {
 		add_menu_page(
-			__( 'Kreativ Fonts', 'kreativ-font-ingestor' ),
-			__( 'Kreativ Fonts', 'kreativ-font-ingestor' ),
+			__( 'Kreativ Free Fonts', 'kreativ-font-ingestor' ),
+			__( 'Free Fonts', 'kreativ-font-ingestor' ),
 			'manage_options',
 			'kreativ-font-ingestor',
 			array( $this, 'render_page' ),
@@ -339,7 +339,7 @@ class KFI_Admin_UI {
 		$recent_downloads = $tracker->get_recent_downloads( 15 );
 		?>
 		<div class="wrap">
-			<h1><?php esc_html_e( 'Kreativ Font Ingestor', 'kreativ-font-ingestor' ); ?></h1>
+			<h1><?php esc_html_e( 'Kreativ Free Fonts', 'kreativ-font-ingestor' ); ?></h1>
 
 			<?php if ( isset( $_GET['imported'] ) ) : ?>
 				<div class="notice notice-success is-dismissible">
@@ -527,6 +527,19 @@ class KFI_Admin_UI {
 
 			<h2><?php esc_html_e( 'Logs', 'kreativ-font-ingestor' ); ?></h2>
 			<textarea class="large-text code" rows="18" readonly><?php echo esc_textarea( $logs ); ?></textarea>
+
+			<hr />
+
+			<div style="margin-top:16px;padding:16px 18px;background:#fff;border:1px solid #dcdcde;border-radius:12px;max-width:520px;">
+				<h2 style="margin-top:0;"><?php esc_html_e( 'Release Info', 'kreativ-font-ingestor' ); ?></h2>
+				<p style="margin:0 0 8px;">
+					<strong><?php esc_html_e( 'Plugin Version:', 'kreativ-font-ingestor' ); ?></strong>
+					<?php echo esc_html( KFI_VERSION ); ?>
+				</p>
+				<p style="margin:0;color:#646970;">
+					<?php esc_html_e( 'This version number is read from the installed plugin files.', 'kreativ-font-ingestor' ); ?>
+				</p>
+			</div>
 		</div>
 		<?php
 	}
@@ -546,7 +559,7 @@ class KFI_Admin_UI {
 		$font_family = get_post_meta( $post_id, '_kfi_font_family', true );
 
 		if ( empty( $font_family ) ) {
-			echo '<p>' . esc_html__( 'This post is not managed by Kreativ Font Ingestor.', 'kreativ-font-ingestor' ) . '</p>';
+			echo '<p>' . esc_html__( 'This post is not managed by Kreativ Free Fonts.', 'kreativ-font-ingestor' ) . '</p>';
 			return;
 		}
 
