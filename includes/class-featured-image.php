@@ -196,6 +196,10 @@ class KFI_Featured_Image {
 		$panel_fill = imagecolorallocatealpha( $image, 255, 255, 255, 18 );
 		$line_color = imagecolorallocatealpha( $image, $theme['line'][0], $theme['line'][1], $theme['line'][2], 44 );
 		$samples    = $this->get_specimen_samples( $data['subsets'], $data['font_name'] );
+		$title_size = max( 72, min( 108, $theme['title_size'] - 26 ) );
+		$title_max_width = $this->scale_value( 760, $scale );
+		$title_lines = $this->fit_text_to_lines( $data['font_name'], $data['font_path'], $this->scale_value( $title_size, $scale ), $title_max_width, 2 );
+		$title_y     = $this->scale_value( 300, $scale );
 
 		for ( $y = 0; $y < $canvas_height; $y++ ) {
 			$ratio = $y / max( 1, $canvas_height - 1 );
@@ -208,6 +212,8 @@ class KFI_Featured_Image {
 
 		imagefilledellipse( $image, $this->scale_value( 1250, $scale ), $this->scale_value( 120, $scale ), $this->scale_value( $theme['hero_shape_w'], $scale ), $this->scale_value( $theme['hero_shape_h'], $scale ), $shape_a );
 		imagefilledellipse( $image, $this->scale_value( 220, $scale ), $this->scale_value( 760, $scale ), $this->scale_value( $theme['secondary_shape_w'], $scale ), $this->scale_value( $theme['secondary_shape_h'], $scale ), $shape_b );
+		imagefilledellipse( $image, $this->scale_value( 1460, $scale ), $this->scale_value( 760, $scale ), $this->scale_value( 520, $scale ), $this->scale_value( 520, $scale ), imagecolorallocatealpha( $image, $theme['accent'][0], $theme['accent'][1], $theme['accent'][2], 112 ) );
+		imagefilledroundedrectangle( $image, $this->scale_value( 112, $scale ), $this->scale_value( 612, $scale ), $this->scale_value( 640, $scale ), $this->scale_value( 748, $scale ), $this->scale_value( 28, $scale ), imagecolorallocatealpha( $image, $theme['accent'][0], $theme['accent'][1], $theme['accent'][2], 88 ) );
 		imagefilledrectangle( $image, $this->scale_value( 84, $scale ), $this->scale_value( 92, $scale ), $this->scale_value( 1516, $scale ), $this->scale_value( 808, $scale ), $panel_fill );
 
 		imagesetthickness( $image, $this->scale_value( 3, $scale ) );
@@ -240,25 +246,27 @@ class KFI_Featured_Image {
 			)
 		);
 
-		$this->draw_text(
-			$image,
-			array(
-				'text'      => $data['font_name'],
-				'x'         => $this->scale_value( 120, $scale ),
-				'y'         => $this->scale_value( 336, $scale ),
-				'size'      => $this->scale_value( max( 72, min( 108, $theme['title_size'] - 26 ) ), $scale ),
-				'color'     => $deep,
-				'font_path' => $data['font_path'],
-				'builtin'   => 5,
-			)
-		);
+		foreach ( $title_lines as $index => $title_line ) {
+			$this->draw_text(
+				$image,
+				array(
+					'text'      => $title_line,
+					'x'         => $this->scale_value( 120, $scale ),
+					'y'         => $title_y + ( $index * $this->scale_value( 96, $scale ) ),
+					'size'      => $this->scale_value( $title_size, $scale ),
+					'color'     => $deep,
+					'font_path' => $data['font_path'],
+					'builtin'   => 5,
+				)
+			);
+		}
 
 		$this->draw_text(
 			$image,
 			array(
 				'text'      => 'Free Download',
 				'x'         => $this->scale_value( 120, $scale ),
-				'y'         => $this->scale_value( 430, $scale ),
+				'y'         => $title_y + ( count( $title_lines ) * $this->scale_value( 96, $scale ) ) + $this->scale_value( 34, $scale ),
 				'size'      => $this->scale_value( 34, $scale ),
 				'color'     => $soft_dark,
 				'font_path' => '',
@@ -266,15 +274,15 @@ class KFI_Featured_Image {
 			)
 		);
 
-		imagefilledroundedrectangle( $image, $this->scale_value( 938, $scale ), $this->scale_value( 208, $scale ), $this->scale_value( 1452, $scale ), $this->scale_value( 560, $scale ), $this->scale_value( 26, $scale ), imagecolorallocatealpha( $image, 255, 255, 255, 28 ) );
-		imagefilledroundedrectangle( $image, $this->scale_value( 980, $scale ), $this->scale_value( 246, $scale ), $this->scale_value( 1410, $scale ), $this->scale_value( 372, $scale ), $this->scale_value( 18, $scale ), $white );
+		imagefilledroundedrectangle( $image, $this->scale_value( 900, $scale ), $this->scale_value( 192, $scale ), $this->scale_value( 1456, $scale ), $this->scale_value( 624, $scale ), $this->scale_value( 30, $scale ), imagecolorallocatealpha( $image, 255, 255, 255, 24 ) );
+		imagefilledroundedrectangle( $image, $this->scale_value( 940, $scale ), $this->scale_value( 232, $scale ), $this->scale_value( 1416, $scale ), $this->scale_value( 378, $scale ), $this->scale_value( 20, $scale ), $white );
 		$this->draw_text(
 			$image,
 			array(
 				'text'      => $samples['headline'],
-				'x'         => $this->scale_value( 1012, $scale ),
-				'y'         => $this->scale_value( 324, $scale ),
-				'size'      => $this->scale_value( 44, $scale ),
+				'x'         => $this->scale_value( 972, $scale ),
+				'y'         => $this->scale_value( 326, $scale ),
+				'size'      => $this->scale_value( 40, $scale ),
 				'color'     => $deep,
 				'font_path' => $data['font_path'],
 				'builtin'   => 5,
@@ -284,9 +292,9 @@ class KFI_Featured_Image {
 			$image,
 			array(
 				'text'      => sprintf( '%s specimen', ucfirst( $data['category'] ) ),
-				'x'         => $this->scale_value( 1012, $scale ),
-				'y'         => $this->scale_value( 424, $scale ),
-				'size'      => $this->scale_value( 22, $scale ),
+				'x'         => $this->scale_value( 972, $scale ),
+				'y'         => $this->scale_value( 434, $scale ),
+				'size'      => $this->scale_value( 20, $scale ),
 				'color'     => $accent,
 				'font_path' => '',
 				'builtin'   => 4,
@@ -296,22 +304,22 @@ class KFI_Featured_Image {
 			$image,
 			array(
 				'text'      => sanitize_text_field( $samples['characters_line'] ),
-				'x'         => $this->scale_value( 1012, $scale ),
-				'y'         => $this->scale_value( 484, $scale ),
-				'size'      => $this->scale_value( 24, $scale ),
+				'x'         => $this->scale_value( 972, $scale ),
+				'y'         => $this->scale_value( 496, $scale ),
+				'size'      => $this->scale_value( 28, $scale ),
 				'color'     => $soft_dark,
 				'font_path' => $data['font_path'],
 				'builtin'   => 4,
 			)
 		);
 
-		imagefilledroundedrectangle( $image, $this->scale_value( 1040, $scale ), $this->scale_value( 650, $scale ), $this->scale_value( 1450, $scale ), $this->scale_value( 736, $scale ), $this->scale_value( 22, $scale ), $accent );
+		imagefilledroundedrectangle( $image, $this->scale_value( 1040, $scale ), $this->scale_value( 664, $scale ), $this->scale_value( 1450, $scale ), $this->scale_value( 754, $scale ), $this->scale_value( 22, $scale ), $accent );
 		$this->draw_text(
 			$image,
 			array(
 				'text'      => 'Commercial Use',
 				'x'         => $this->scale_value( 1142, $scale ),
-				'y'         => $this->scale_value( 706, $scale ),
+				'y'         => $this->scale_value( 722, $scale ),
 				'size'      => $this->scale_value( 26, $scale ),
 				'color'     => $white,
 				'font_path' => '',
@@ -319,14 +327,14 @@ class KFI_Featured_Image {
 			)
 		);
 
-		imagefilledellipse( $image, $this->scale_value( 1378, $scale ), $this->scale_value( 230, $scale ), $this->scale_value( 134, $scale ), $this->scale_value( 134, $scale ), $shape_b );
-		imagefilledellipse( $image, $this->scale_value( 1378, $scale ), $this->scale_value( 230, $scale ), $this->scale_value( 92, $scale ), $this->scale_value( 92, $scale ), $white );
+		imagefilledellipse( $image, $this->scale_value( 1374, $scale ), $this->scale_value( 210, $scale ), $this->scale_value( 150, $scale ), $this->scale_value( 150, $scale ), $shape_b );
+		imagefilledellipse( $image, $this->scale_value( 1374, $scale ), $this->scale_value( 210, $scale ), $this->scale_value( 104, $scale ), $this->scale_value( 104, $scale ), $white );
 		$this->draw_text(
 			$image,
 			array(
 				'text'      => $samples['badge'],
-				'x'         => $this->scale_value( 1342, $scale ),
-				'y'         => $this->scale_value( 254, $scale ),
+				'x'         => $this->scale_value( 1338, $scale ),
+				'y'         => $this->scale_value( 238, $scale ),
 				'size'      => $this->scale_value( 42, $scale ),
 				'color'     => $deep,
 				'font_path' => $data['font_path'],
@@ -596,16 +604,16 @@ class KFI_Featured_Image {
 			'serif' => array(
 				'layout'            => 'editorial',
 				'kicker'            => 'Editorial serif specimen',
-				'bg_start'          => array( 242, 236, 228 ),
-				'bg_end'            => array( 252, 249, 244 ),
-				'accent'            => array( 145, 92, 52 ),
-				'deep'              => array( 44, 31, 24 ),
-				'soft_dark'         => array( 110, 91, 80 ),
-				'shape_a'           => array( 182, 134, 95 ),
-				'shape_a_alpha'     => 96,
-				'shape_b'           => array( 225, 204, 177 ),
-				'shape_b_alpha'     => 98,
-				'line'              => array( 203, 182, 159 ),
+				'bg_start'          => array( 248, 235, 231 ),
+				'bg_end'            => array( 255, 248, 243 ),
+				'accent'            => array( 196, 93, 44 ),
+				'deep'              => array( 56, 24, 36 ),
+				'soft_dark'         => array( 118, 84, 79 ),
+				'shape_a'           => array( 232, 121, 83 ),
+				'shape_a_alpha'     => 82,
+				'shape_b'           => array( 255, 181, 78 ),
+				'shape_b_alpha'     => 92,
+				'line'              => array( 224, 171, 147 ),
 				'hero_shape_w'      => 520,
 				'hero_shape_h'      => 520,
 				'secondary_shape_w' => 360,
@@ -792,6 +800,98 @@ class KFI_Featured_Image {
 		}
 
 		imagestring( $image, max( 1, min( 5, $builtin ) ), $x, max( 0, $y - 18 ), $text, $color );
+	}
+
+	/**
+	 * Fit a text string into a maximum width using up to a fixed number of lines.
+	 *
+	 * @param string $text Text to fit.
+	 * @param string $font_path Font path.
+	 * @param int    $size Font size.
+	 * @param int    $max_width Maximum width.
+	 * @param int    $max_lines Maximum line count.
+	 * @return array<int, string>
+	 */
+	private function fit_text_to_lines( $text, $font_path, $size, $max_width, $max_lines ) {
+		$text = trim( (string) $text );
+
+		if ( '' === $text ) {
+			return array( '' );
+		}
+
+		$words = preg_split( '/\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY );
+
+		if ( empty( $words ) ) {
+			return array( $text );
+		}
+
+		$lines         = array();
+		$line          = '';
+		$consumed_words = 0;
+
+		foreach ( $words as $word ) {
+			$candidate = '' === $line ? $word : $line . ' ' . $word;
+
+			if ( $this->measure_text_width( $candidate, $font_path, $size ) <= $max_width || '' === $line ) {
+				$line = $candidate;
+				++$consumed_words;
+				continue;
+			}
+
+			$lines[] = $line;
+			$line    = $word;
+			++$consumed_words;
+
+			if ( count( $lines ) === $max_lines - 1 ) {
+				break;
+			}
+		}
+
+		if ( '' !== $line ) {
+			$lines[] = $line;
+		}
+
+		$remaining_words = array_slice( $words, $consumed_words );
+
+		if ( ! empty( $remaining_words ) ) {
+			$tail = implode( ' ', $remaining_words );
+			$last = array_pop( $lines );
+			$combined = trim( $last . ' ' . $tail );
+
+			while ( $this->measure_text_width( $combined, $font_path, $size ) > $max_width && false !== strpos( $combined, ' ' ) ) {
+				$combined = preg_replace( '/\s+\S+$/u', '', $combined );
+			}
+
+			$lines[] = trim( $combined );
+		}
+
+		return array_slice( array_filter( array_map( 'trim', $lines ) ), 0, $max_lines );
+	}
+
+	/**
+	 * Measure text width for a given font and size.
+	 *
+	 * @param string $text Text to measure.
+	 * @param string $font_path Font path.
+	 * @param int    $size Font size.
+	 * @return int
+	 */
+	private function measure_text_width( $text, $font_path, $size ) {
+		$text = (string) $text;
+
+		if ( '' === $text ) {
+			return 0;
+		}
+
+		if ( $font_path && function_exists( 'imagettfbbox' ) && file_exists( $font_path ) ) {
+			$box = imagettfbbox( $size, 0, $font_path, $text );
+
+			if ( is_array( $box ) ) {
+				return (int) abs( $box[2] - $box[0] );
+			}
+		}
+
+		return strlen( $text ) * max( 8, (int) round( $size * 0.62 ) );
 	}
 
 	/**
