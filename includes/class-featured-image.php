@@ -185,6 +185,9 @@ class KFI_Featured_Image {
 		imageantialias( $image, true );
 
 		$theme      = $this->get_category_theme( $data['category'] );
+		$name_profile = $this->get_name_profile( $data['font_name'] );
+		$title_adjust = 'short' === $name_profile ? 10 : ( 'long' === $name_profile ? -12 : 0 );
+		$max_title_lines = 'long' === $name_profile ? 3 : 2;
 		$bg_start   = $theme['bg_start'];
 		$bg_end     = $theme['bg_end'];
 		$accent     = imagecolorallocate( $image, $theme['accent'][0], $theme['accent'][1], $theme['accent'][2] );
@@ -197,13 +200,22 @@ class KFI_Featured_Image {
 		$line_color = imagecolorallocatealpha( $image, $theme['line'][0], $theme['line'][1], $theme['line'][2], 44 );
 		$samples    = $this->get_specimen_samples( $data['subsets'], $data['font_name'] );
 		$character_lines = array_values( array_filter( array_map( 'trim', explode( "\n", (string) $samples['characters'] ) ) ) );
-		$title_size = max( 72, min( 108, $theme['title_size'] - 26 ) );
-		$title_max_width = $this->scale_value( 880, $scale );
-		$title_lines = $this->fit_text_to_lines( $data['font_name'], $data['font_path'], $this->scale_value( $title_size, $scale ), $title_max_width, 2 );
-		$title_y     = $this->scale_value( 300, $scale );
-		$specimen_size = 34;
-		$specimen_max_width = $this->scale_value( 430, $scale );
+		$title_size = max( 62, min( 118, $theme['title_size'] - 20 + $title_adjust ) );
+		$title_widths = array(
+			'poster'    => 1200,
+			'editorial' => 920,
+			'interface' => 'short' === $name_profile ? 980 : 840,
+		);
+		$title_max_width = $this->scale_value( isset( $title_widths[ $theme['layout'] ] ) ? $title_widths[ $theme['layout'] ] : 900, $scale );
+		$title_lines = $this->fit_text_to_lines( $data['font_name'], $data['font_path'], $this->scale_value( $title_size, $scale ), $title_max_width, $max_title_lines );
+		$title_y     = $this->scale_value( 'poster' === $theme['layout'] ? 320 : 286, $scale );
+		$specimen_size = 'short' === $name_profile ? 38 : 32;
+		$specimen_max_width = $this->scale_value( 'editorial' === $theme['layout'] ? 1020 : 470, $scale );
 		$specimen_lines = $this->fit_text_to_lines( $samples['headline'], $data['font_path'], $this->scale_value( $specimen_size, $scale ), $specimen_max_width, 2 );
+		$contrast_panel = imagecolorallocatealpha( $image, 255, 255, 255, 'editorial' === $theme['layout'] ? 8 : 12 );
+		$soft_panel     = imagecolorallocatealpha( $image, 255, 255, 255, 24 );
+		$accent_soft    = imagecolorallocatealpha( $image, $theme['accent'][0], $theme['accent'][1], $theme['accent'][2], 'poster' === $theme['layout'] ? 30 : 42 );
+		$accent_ghost   = imagecolorallocatealpha( $image, $theme['accent'][0], $theme['accent'][1], $theme['accent'][2], 92 );
 
 		for ( $y = 0; $y < $canvas_height; $y++ ) {
 			$ratio = $y / max( 1, $canvas_height - 1 );
@@ -269,7 +281,7 @@ class KFI_Featured_Image {
 			array(
 				'text'      => 'Free Download',
 				'x'         => $this->scale_value( 120, $scale ),
-				'y'         => $title_y + ( count( $title_lines ) * $this->scale_value( 96, $scale ) ) + $this->scale_value( 26, $scale ),
+				'y'         => $title_y + ( count( $title_lines ) * $this->scale_value( 'long' === $name_profile ? 88 : 96, $scale ) ) + $this->scale_value( 24, $scale ),
 				'size'      => $this->scale_value( 34, $scale ),
 				'color'     => $soft_dark,
 				'font_path' => '',
@@ -277,102 +289,118 @@ class KFI_Featured_Image {
 			)
 		);
 
-		imagefilledroundedrectangle( $image, $this->scale_value( 120, $scale ), $this->scale_value( 430, $scale ), $this->scale_value( 1460, $scale ), $this->scale_value( 612, $scale ), $this->scale_value( 30, $scale ), imagecolorallocatealpha( $image, 255, 255, 255, 20 ) );
-		imagefilledroundedrectangle( $image, $this->scale_value( 160, $scale ), $this->scale_value( 466, $scale ), $this->scale_value( 1280, $scale ), $this->scale_value( 560, $scale ), $this->scale_value( 18, $scale ), $white );
-		foreach ( $specimen_lines as $index => $specimen_line ) {
+		if ( 'poster' === $theme['layout'] ) {
+			imagefilledroundedrectangle( $image, $this->scale_value( 902, $scale ), $this->scale_value( 200, $scale ), $this->scale_value( 1442, $scale ), $this->scale_value( 566, $scale ), $this->scale_value( 34, $scale ), $soft_panel );
+			imagefilledroundedrectangle( $image, $this->scale_value( 942, $scale ), $this->scale_value( 244, $scale ), $this->scale_value( 1406, $scale ), $this->scale_value( 354, $scale ), $this->scale_value( 18, $scale ), $contrast_panel );
+			foreach ( $specimen_lines as $index => $specimen_line ) {
+				$this->draw_text(
+					$image,
+					array(
+						'text'      => $specimen_line,
+						'x'         => $this->scale_value( 974, $scale ),
+						'y'         => $this->scale_value( 318, $scale ) + ( $index * $this->scale_value( 60, $scale ) ),
+						'size'      => $this->scale_value( 38, $scale ),
+						'color'     => $deep,
+						'font_path' => $data['font_path'],
+						'builtin'   => 5,
+					)
+				);
+			}
 			$this->draw_text(
 				$image,
 				array(
-					'text'      => $specimen_line,
-					'x'         => $this->scale_value( 192, $scale ),
-					'y'         => $this->scale_value( 530, $scale ) + ( $index * $this->scale_value( 60, $scale ) ),
-					'size'      => $this->scale_value( $specimen_size, $scale ),
+					'text'      => sanitize_text_field( $samples['characters_line'] ),
+					'x'         => $this->scale_value( 974, $scale ),
+					'y'         => $this->scale_value( 474, $scale ),
+					'size'      => $this->scale_value( 28, $scale ),
 					'color'     => $deep,
 					'font_path' => $data['font_path'],
-					'builtin'   => 5,
+					'builtin'   => 4,
 				)
 			);
-		}
-		$this->draw_text(
-			$image,
-			array(
-				'text'      => sprintf( '%s specimen', ucfirst( $data['category'] ) ),
-				'x'         => $this->scale_value( 192, $scale ),
-				'y'         => $this->scale_value( 494, $scale ),
-				'size'      => $this->scale_value( 20, $scale ),
-				'color'     => $accent,
-				'font_path' => '',
-				'builtin'   => 4,
-			)
-		);
-		$this->draw_text(
-			$image,
-			array(
-				'text'      => sanitize_text_field( $samples['characters_line'] ),
-				'x'         => $this->scale_value( 1010, $scale ),
-				'y'         => $this->scale_value( 586, $scale ),
-				'size'      => $this->scale_value( 24, $scale ),
-				'color'     => $soft_dark,
-				'font_path' => $data['font_path'],
-				'builtin'   => 4,
-			)
-		);
-
-		imagefilledroundedrectangle( $image, $this->scale_value( 120, $scale ), $this->scale_value( 650, $scale ), $this->scale_value( 760, $scale ), $this->scale_value( 760, $scale ), $this->scale_value( 28, $scale ), imagecolorallocatealpha( $image, $theme['accent'][0], $theme['accent'][1], $theme['accent'][2], 36 ) );
-		$this->draw_text(
-			$image,
-			array(
-				'text'      => 'Character Set',
-				'x'         => $this->scale_value( 148, $scale ),
-				'y'         => $this->scale_value( 690, $scale ),
-				'size'      => $this->scale_value( 20, $scale ),
-				'color'     => $deep,
-				'font_path' => '',
-				'builtin'   => 4,
-			)
-		);
-		if ( ! empty( $character_lines[0] ) ) {
+			imagefilledroundedrectangle( $image, $this->scale_value( 120, $scale ), $this->scale_value( 640, $scale ), $this->scale_value( 860, $scale ), $this->scale_value( 766, $scale ), $this->scale_value( 28, $scale ), $accent_soft );
+			$this->render_character_panel( $image, $data['font_path'], $character_lines, $deep, $soft_dark, $this->scale_value( 148, $scale ), $this->scale_value( 688, $scale ), $scale );
+			imagefilledroundedrectangle( $image, $this->scale_value( 962, $scale ), $this->scale_value( 640, $scale ), $this->scale_value( 1450, $scale ), $this->scale_value( 766, $scale ), $this->scale_value( 26, $scale ), $accent );
+			$this->draw_cta_text( $image, 'Commercial Use', $white, $this->scale_value( 1098, $scale ), $this->scale_value( 716, $scale ), $scale );
+		} elseif ( 'editorial' === $theme['layout'] ) {
+			imagefilledroundedrectangle( $image, $this->scale_value( 120, $scale ), $this->scale_value( 406, $scale ), $this->scale_value( 1460, $scale ), $this->scale_value( 610, $scale ), $this->scale_value( 30, $scale ), $soft_panel );
+			imagefilledroundedrectangle( $image, $this->scale_value( 170, $scale ), $this->scale_value( 450, $scale ), $this->scale_value( 1288, $scale ), $this->scale_value( 548, $scale ), $this->scale_value( 18, $scale ), $contrast_panel );
 			$this->draw_text(
 				$image,
 				array(
-					'text'      => sanitize_text_field( $this->clip_text( $character_lines[0], 18 ) ),
-					'x'         => $this->scale_value( 148, $scale ),
-					'y'         => $this->scale_value( 742, $scale ),
-					'size'      => $this->scale_value( 26, $scale ),
-					'color'     => $deep,
-					'font_path' => $data['font_path'],
-					'builtin'   => 5,
+					'text'      => sprintf( '%s specimen', ucfirst( $data['category'] ) ),
+					'x'         => $this->scale_value( 202, $scale ),
+					'y'         => $this->scale_value( 438, $scale ),
+					'size'      => $this->scale_value( 20, $scale ),
+					'color'     => $accent,
+					'font_path' => '',
+					'builtin'   => 4,
 				)
 			);
-		}
-		if ( ! empty( $character_lines[1] ) ) {
+			foreach ( $specimen_lines as $index => $specimen_line ) {
+				$this->draw_text(
+					$image,
+					array(
+						'text'      => $specimen_line,
+						'x'         => $this->scale_value( 206, $scale ),
+						'y'         => $this->scale_value( 516, $scale ) + ( $index * $this->scale_value( 54, $scale ) ),
+						'size'      => $this->scale_value( 34, $scale ),
+						'color'     => $deep,
+						'font_path' => $data['font_path'],
+						'builtin'   => 5,
+					)
+				);
+			}
 			$this->draw_text(
 				$image,
 				array(
-					'text'      => sanitize_text_field( $this->clip_text( $character_lines[1], 18 ) ),
-					'x'         => $this->scale_value( 148, $scale ),
-					'y'         => $this->scale_value( 786, $scale ),
+					'text'      => sanitize_text_field( $samples['characters_line'] ),
+					'x'         => $this->scale_value( 1066, $scale ),
+					'y'         => $this->scale_value( 576, $scale ),
 					'size'      => $this->scale_value( 22, $scale ),
-					'color'     => $soft_dark,
+					'color'     => $deep,
 					'font_path' => $data['font_path'],
-					'builtin'   => 5,
+					'builtin'   => 4,
 				)
 			);
+			imagefilledroundedrectangle( $image, $this->scale_value( 120, $scale ), $this->scale_value( 646, $scale ), $this->scale_value( 780, $scale ), $this->scale_value( 766, $scale ), $this->scale_value( 28, $scale ), $accent_soft );
+			$this->render_character_panel( $image, $data['font_path'], $character_lines, $deep, $soft_dark, $this->scale_value( 150, $scale ), $this->scale_value( 692, $scale ), $scale );
+			imagefilledroundedrectangle( $image, $this->scale_value( 930, $scale ), $this->scale_value( 646, $scale ), $this->scale_value( 1450, $scale ), $this->scale_value( 766, $scale ), $this->scale_value( 26, $scale ), $accent );
+			$this->draw_cta_text( $image, 'Commercial Use', $white, $this->scale_value( 1084, $scale ), $this->scale_value( 718, $scale ), $scale );
+		} else {
+			imagefilledroundedrectangle( $image, $this->scale_value( 920, $scale ), $this->scale_value( 180, $scale ), $this->scale_value( 1450, $scale ), $this->scale_value( 500, $scale ), $this->scale_value( 28, $scale ), $soft_panel );
+			imagefilledroundedrectangle( $image, $this->scale_value( 952, $scale ), $this->scale_value( 222, $scale ), $this->scale_value( 1412, $scale ), $this->scale_value( 324, $scale ), $this->scale_value( 18, $scale ), $contrast_panel );
+			foreach ( $specimen_lines as $index => $specimen_line ) {
+				$this->draw_text(
+					$image,
+					array(
+						'text'      => $specimen_line,
+						'x'         => $this->scale_value( 982, $scale ),
+						'y'         => $this->scale_value( 290, $scale ) + ( $index * $this->scale_value( 54, $scale ) ),
+						'size'      => $this->scale_value( 'short' === $name_profile ? 40 : 34, $scale ),
+						'color'     => $deep,
+						'font_path' => $data['font_path'],
+						'builtin'   => 5,
+					)
+				);
+			}
+			$this->draw_text(
+				$image,
+				array(
+					'text'      => sprintf( '%s specimen', ucfirst( $data['category'] ) ),
+					'x'         => $this->scale_value( 982, $scale ),
+					'y'         => $this->scale_value( 396, $scale ),
+					'size'      => $this->scale_value( 20, $scale ),
+					'color'     => $accent,
+					'font_path' => '',
+					'builtin'   => 4,
+				)
+			);
+			imagefilledroundedrectangle( $image, $this->scale_value( 120, $scale ), $this->scale_value( 620, $scale ), $this->scale_value( 850, $scale ), $this->scale_value( 766, $scale ), $this->scale_value( 28, $scale ), $accent_ghost );
+			$this->render_character_panel( $image, $data['font_path'], $character_lines, $white, $white, $this->scale_value( 150, $scale ), $this->scale_value( 672, $scale ), $scale );
+			imagefilledroundedrectangle( $image, $this->scale_value( 930, $scale ), $this->scale_value( 620, $scale ), $this->scale_value( 1450, $scale ), $this->scale_value( 766, $scale ), $this->scale_value( 26, $scale ), $accent );
+			$this->draw_cta_text( $image, 'Commercial Use', $white, $this->scale_value( 1084, $scale ), $this->scale_value( 706, $scale ), $scale );
 		}
-
-		imagefilledroundedrectangle( $image, $this->scale_value( 930, $scale ), $this->scale_value( 650, $scale ), $this->scale_value( 1450, $scale ), $this->scale_value( 760, $scale ), $this->scale_value( 24, $scale ), $accent );
-		$this->draw_text(
-			$image,
-			array(
-				'text'      => 'Commercial Use',
-				'x'         => $this->scale_value( 1082, $scale ),
-				'y'         => $this->scale_value( 716, $scale ),
-				'size'      => $this->scale_value( 30, $scale ),
-				'color'     => $white,
-				'font_path' => '',
-				'builtin'   => 5,
-			)
-		);
 
 		imagefilledellipse( $image, $this->scale_value( 1374, $scale ), $this->scale_value( 210, $scale ), $this->scale_value( 150, $scale ), $this->scale_value( 150, $scale ), $shape_b );
 		imagefilledellipse( $image, $this->scale_value( 1374, $scale ), $this->scale_value( 210, $scale ), $this->scale_value( 104, $scale ), $this->scale_value( 104, $scale ), $white );
@@ -847,6 +875,112 @@ class KFI_Featured_Image {
 		}
 
 		imagestring( $image, max( 1, min( 5, $builtin ) ), $x, max( 0, $y - 18 ), $text, $color );
+	}
+
+	/**
+	 * Draw a compact glyph/character panel.
+	 *
+	 * @param resource         $image Image resource.
+	 * @param string           $font_path Font path.
+	 * @param array<int,string> $character_lines Character lines.
+	 * @param int              $primary_color Primary text color.
+	 * @param int              $secondary_color Secondary text color.
+	 * @param int              $x Left origin.
+	 * @param int              $y Top origin.
+	 * @param int              $scale Scale factor.
+	 * @return void
+	 */
+	private function render_character_panel( $image, $font_path, array $character_lines, $primary_color, $secondary_color, $x, $y, $scale ) {
+		$this->draw_text(
+			$image,
+			array(
+				'text'      => 'Character Set',
+				'x'         => $x,
+				'y'         => $y,
+				'size'      => $this->scale_value( 20, $scale ),
+				'color'     => $primary_color,
+				'font_path' => '',
+				'builtin'   => 4,
+			)
+		);
+
+		if ( ! empty( $character_lines[0] ) ) {
+			$this->draw_text(
+				$image,
+				array(
+					'text'      => sanitize_text_field( $this->clip_text( $character_lines[0], 22 ) ),
+					'x'         => $x,
+					'y'         => $y + $this->scale_value( 54, $scale ),
+					'size'      => $this->scale_value( 26, $scale ),
+					'color'     => $primary_color,
+					'font_path' => $font_path,
+					'builtin'   => 5,
+				)
+			);
+		}
+
+		if ( ! empty( $character_lines[1] ) ) {
+			$this->draw_text(
+				$image,
+				array(
+					'text'      => sanitize_text_field( $this->clip_text( $character_lines[1], 22 ) ),
+					'x'         => $x,
+					'y'         => $y + $this->scale_value( 98, $scale ),
+					'size'      => $this->scale_value( 22, $scale ),
+					'color'     => $secondary_color,
+					'font_path' => $font_path,
+					'builtin'   => 5,
+				)
+			);
+		}
+	}
+
+	/**
+	 * Draw CTA text consistently.
+	 *
+	 * @param resource $image Image resource.
+	 * @param string   $text CTA label.
+	 * @param int      $color Color.
+	 * @param int      $x Left position.
+	 * @param int      $y Baseline.
+	 * @param int      $scale Scale factor.
+	 * @return void
+	 */
+	private function draw_cta_text( $image, $text, $color, $x, $y, $scale ) {
+		$this->draw_text(
+			$image,
+			array(
+				'text'      => (string) $text,
+				'x'         => $x,
+				'y'         => $y,
+				'size'      => $this->scale_value( 30, $scale ),
+				'color'     => $color,
+				'font_path' => '',
+				'builtin'   => 5,
+			)
+		);
+	}
+
+	/**
+	 * Classify a font family name length for layout decisions.
+	 *
+	 * @param string $font_name Font family name.
+	 * @return string
+	 */
+	private function get_name_profile( $font_name ) {
+		$font_name = trim( (string) $font_name );
+		$word_count = count( preg_split( '/\s+/u', $font_name, -1, PREG_SPLIT_NO_EMPTY ) );
+		$length = function_exists( 'mb_strlen' ) ? mb_strlen( $font_name ) : strlen( $font_name );
+
+		if ( $length >= 18 || $word_count >= 3 ) {
+			return 'long';
+		}
+
+		if ( $length <= 10 && $word_count <= 2 ) {
+			return 'short';
+		}
+
+		return 'medium';
 	}
 
 	/**
