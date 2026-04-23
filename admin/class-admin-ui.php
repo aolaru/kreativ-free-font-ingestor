@@ -174,7 +174,7 @@ class KFI_Admin_UI {
 		?>
 		<label for="kfi-cron-enabled">
 			<input id="kfi-cron-enabled" type="checkbox" name="<?php echo esc_attr( KFI_OPTION_SETTINGS ); ?>[cron_enabled]" value="1" <?php checked( ! empty( $settings['cron_enabled'] ) ); ?> />
-			<?php esc_html_e( 'Enable automatic imports every 6 hours.', 'kreativ-font-ingestor' ); ?>
+			<?php esc_html_e( 'Enable automatic imports every 8 hours.', 'kreativ-font-ingestor' ); ?>
 		</label>
 		<?php
 	}
@@ -188,7 +188,7 @@ class KFI_Admin_UI {
 		$settings = $this->plugin->get_settings();
 		?>
 		<input type="number" min="1" max="50" name="<?php echo esc_attr( KFI_OPTION_SETTINGS ); ?>[import_limit]" value="<?php echo esc_attr( $settings['import_limit'] ); ?>" />
-		<p class="description"><?php esc_html_e( 'Batch size for manual and scheduled imports. Default: 3 fonts every 6 hours.', 'kreativ-font-ingestor' ); ?></p>
+		<p class="description"><?php esc_html_e( 'Batch size for manual and scheduled imports. Default: 3 fonts every 8 hours.', 'kreativ-font-ingestor' ); ?></p>
 		<?php
 	}
 
@@ -333,6 +333,7 @@ class KFI_Admin_UI {
 
 		$logger        = $this->plugin->get_logger();
 		$logs          = $logger->get_logs();
+		$cron_status   = $this->plugin->get_cron()->get_status_summary();
 		$tracker       = $this->plugin->get_download_tracker();
 		$download_totals = $tracker->get_overview_stats();
 		$top_downloads   = $tracker->get_top_downloads( 10 );
@@ -400,6 +401,48 @@ class KFI_Admin_UI {
 				submit_button( __( 'Save Settings', 'kreativ-font-ingestor' ) );
 				?>
 			</form>
+
+			<hr />
+
+			<h2><?php esc_html_e( 'Cron Status', 'kreativ-font-ingestor' ); ?></h2>
+			<div style="display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:12px;max-width:920px;margin-bottom:16px;">
+				<div style="background:#fff;border:1px solid #dcdcde;border-radius:12px;padding:14px;">
+					<strong style="display:block;font-size:18px;"><?php echo esc_html( ! empty( $cron_status['enabled'] ) ? __( 'Enabled', 'kreativ-font-ingestor' ) : __( 'Disabled', 'kreativ-font-ingestor' ) ); ?></strong>
+					<span><?php esc_html_e( 'Cron Status', 'kreativ-font-ingestor' ); ?></span>
+				</div>
+				<div style="background:#fff;border:1px solid #dcdcde;border-radius:12px;padding:14px;">
+					<strong style="display:block;font-size:18px;"><?php echo esc_html( ! empty( $cron_status['next_run'] ) ? $cron_status['next_run'] : '—' ); ?></strong>
+					<span><?php esc_html_e( 'Next Scheduled Run', 'kreativ-font-ingestor' ); ?></span>
+				</div>
+				<div style="background:#fff;border:1px solid #dcdcde;border-radius:12px;padding:14px;">
+					<strong style="display:block;font-size:18px;"><?php echo esc_html( ! empty( $cron_status['last_finished_at'] ) ? $cron_status['last_finished_at'] : '—' ); ?></strong>
+					<span><?php esc_html_e( 'Last Finished Run', 'kreativ-font-ingestor' ); ?></span>
+				</div>
+				<div style="background:#fff;border:1px solid #dcdcde;border-radius:12px;padding:14px;">
+					<strong style="display:block;font-size:18px;"><?php echo esc_html( ! empty( $cron_status['last_status'] ) ? sanitize_text_field( ucwords( str_replace( '_', ' ', $cron_status['last_status'] ) ) ) : '—' ); ?></strong>
+					<span><?php esc_html_e( 'Last Run Status', 'kreativ-font-ingestor' ); ?></span>
+				</div>
+			</div>
+			<table class="widefat striped" style="max-width:920px;margin-bottom:16px;">
+				<tbody>
+					<tr>
+						<th style="width:220px;"><?php esc_html_e( 'Last Started At', 'kreativ-font-ingestor' ); ?></th>
+						<td><?php echo esc_html( ! empty( $cron_status['last_started_at'] ) ? $cron_status['last_started_at'] : '—' ); ?></td>
+					</tr>
+					<tr>
+						<th><?php esc_html_e( 'Last Run Imported', 'kreativ-font-ingestor' ); ?></th>
+						<td><?php echo esc_html( (string) absint( $cron_status['imported'] ) ); ?></td>
+					</tr>
+					<tr>
+						<th><?php esc_html_e( 'Last Run Skipped', 'kreativ-font-ingestor' ); ?></th>
+						<td><?php echo esc_html( (string) absint( $cron_status['skipped'] ) ); ?></td>
+					</tr>
+					<tr>
+						<th><?php esc_html_e( 'Last Run Errors', 'kreativ-font-ingestor' ); ?></th>
+						<td><?php echo esc_html( (string) absint( $cron_status['error_count'] ) ); ?></td>
+					</tr>
+				</tbody>
+			</table>
 
 			<hr />
 

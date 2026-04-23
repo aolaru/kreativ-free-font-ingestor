@@ -3,7 +3,7 @@
  * Plugin Name: Kreativ Free Fonts
  * Plugin URI: https://example.com/kreativ-font-ingestor
  * Description: Imports open-source Google Fonts, stores them locally with OFL licensing, generates ZIP packages, and publishes SEO-ready WordPress posts.
- * Version: 1.1
+ * Version: 1.1.1
  * Author: Kreativ
  * Author URI: https://example.com
  * Text Domain: kreativ-font-ingestor
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'KFI_VERSION', '1.1' );
+define( 'KFI_VERSION', '1.1.1' );
 define( 'KFI_PLUGIN_FILE', __FILE__ );
 define( 'KFI_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'KFI_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -992,6 +992,15 @@ final class KFI_Plugin {
 	 */
 	public function get_download_tracker() {
 		return $this->download_tracker;
+	}
+
+	/**
+	 * Expose cron controller instance.
+	 *
+	 * @return KFI_Cron
+	 */
+	public function get_cron() {
+		return $this->cron;
 	}
 }
 
