@@ -476,7 +476,7 @@ class KFI_Admin_UI {
 			<hr />
 
 			<h2><?php esc_html_e( 'Backfill Preview Assets', 'kreativ-font-ingestor' ); ?></h2>
-			<p><?php esc_html_e( 'Generate managed preview files and optional webfont kits for existing imported fonts without rebuilding the full post content.', 'kreativ-font-ingestor' ); ?></p>
+			<p><?php esc_html_e( 'Generate managed preview files for existing imported fonts without rebuilding the full post content.', 'kreativ-font-ingestor' ); ?></p>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-bottom:16px;">
 				<input type="hidden" name="action" value="kfi_backfill_preview_assets" />
 				<?php wp_nonce_field( 'kfi_backfill_preview_assets' ); ?>
@@ -611,9 +611,6 @@ class KFI_Admin_UI {
 		$preview_status = sanitize_text_field( get_post_meta( $post_id, '_kfi_preview_asset_status', true ) );
 		$source_file    = sanitize_text_field( get_post_meta( $post_id, '_kfi_preview_asset_source_file', true ) );
 		$preview_format = sanitize_text_field( get_post_meta( $post_id, '_kfi_preview_asset_format', true ) );
-		$webfont_url    = sanitize_text_field( get_post_meta( $post_id, '_kfi_webfont_zip_url', true ) );
-		$webfont_name   = sanitize_text_field( get_post_meta( $post_id, '_kfi_webfont_zip_name', true ) );
-		$webfont_size   = sanitize_text_field( get_post_meta( $post_id, '_kfi_webfont_zip_size_human', true ) );
 		$file_exists    = $preview_path && file_exists( $preview_path );
 		$rows           = array(
 			__( 'Managed preview URL', 'kreativ-font-ingestor' )   => $preview_url ? $preview_url : '—',
@@ -622,9 +619,6 @@ class KFI_Admin_UI {
 			__( 'Preview source file', 'kreativ-font-ingestor' )   => $source_file ? $source_file : '—',
 			__( 'Preview format', 'kreativ-font-ingestor' )        => $preview_format ? $preview_format : '—',
 			__( 'File exists on disk', 'kreativ-font-ingestor' )   => $file_exists ? __( 'Yes', 'kreativ-font-ingestor' ) : __( 'No', 'kreativ-font-ingestor' ),
-			__( 'Webfont kit URL', 'kreativ-font-ingestor' )       => $webfont_url ? $webfont_url : '—',
-			__( 'Webfont kit name', 'kreativ-font-ingestor' )      => $webfont_name ? $webfont_name : '—',
-			__( 'Webfont kit size', 'kreativ-font-ingestor' )      => $webfont_size ? $webfont_size : '—',
 		);
 		?>
 		<div class="kfi-preview-debug">

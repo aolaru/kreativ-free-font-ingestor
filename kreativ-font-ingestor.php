@@ -451,13 +451,6 @@ final class KFI_Plugin {
 					$this->logger->error( sprintf( 'Preview asset preparation failed for %s. %s', $font_family, $preview_asset->get_error_message() ) );
 				} else {
 					$download['preview_asset'] = $preview_asset;
-					$webfont_kit               = $this->preview_assets->ensure_webfont_kit( $download, $preview_asset );
-
-					if ( is_wp_error( $webfont_kit ) ) {
-						$this->logger->info( sprintf( 'Webfont kit skipped for %s. %s', $font_family, $webfont_kit->get_error_message() ) );
-					} else {
-						$download['webfont_kit'] = $webfont_kit;
-					}
 				}
 
 				$post_id = $this->publisher->create_post( $font, $download, $zip_file, $settings );
@@ -600,7 +593,7 @@ final class KFI_Plugin {
 	}
 
 	/**
-	 * Backfill managed preview assets and optional webfont kits.
+	 * Backfill managed preview assets.
 	 *
 	 * @param int $post_id Single post ID or 0 for batch mode.
 	 * @param int $limit   Batch size.
@@ -682,11 +675,6 @@ final class KFI_Plugin {
 
 		if ( ! is_wp_error( $preview_asset ) ) {
 			$download['preview_asset'] = $preview_asset;
-			$webfont_kit               = $this->preview_assets->ensure_webfont_kit( $download, $preview_asset );
-
-			if ( ! is_wp_error( $webfont_kit ) ) {
-				$download['webfont_kit'] = $webfont_kit;
-			}
 		}
 
 		$sync = $this->publisher->sync_post_data( $post_id, $font, $download, $zip_file, $settings );
@@ -749,11 +737,6 @@ final class KFI_Plugin {
 		}
 
 		$download['preview_asset'] = $preview_asset;
-		$webfont_kit               = $this->preview_assets->ensure_webfont_kit( $download, $preview_asset );
-
-		if ( ! is_wp_error( $webfont_kit ) ) {
-			$download['webfont_kit'] = $webfont_kit;
-		}
 
 		$specimen = $this->featured_image->generate_specimen_for_post( $post_id, $download, $font, true );
 

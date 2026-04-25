@@ -245,17 +245,11 @@ if ( ! function_exists( 'kfi_render_post_template' ) ) {
 		$number_specimen = $samples['characters'];
 		$show_affiliate = ! empty( trim( wp_strip_all_tags( $affiliate ) ) );
 		$related_posts  = $post_id ? kfi_get_related_font_posts( $post_id, $font ) : array();
-		$download_url   = $zip['zip_url'];
-		$webfont_url    = $post_id ? esc_url_raw( get_post_meta( $post_id, '_kfi_webfont_zip_url', true ) ) : '';
-		$webfont_size   = $post_id ? sanitize_text_field( get_post_meta( $post_id, '_kfi_webfont_zip_size_human', true ) ) : '';
-		$specimen_url   = $post_id ? esc_url_raw( get_post_meta( $post_id, '_kfi_specimen_image_url', true ) ) : '';
+		$download_url = $zip['zip_url'];
+		$specimen_url = $post_id ? esc_url_raw( get_post_meta( $post_id, '_kfi_specimen_image_url', true ) ) : '';
 
 		if ( $post_id && class_exists( 'KFI_Plugin' ) ) {
 			$download_url = KFI_Plugin::instance()->get_download_tracker()->get_download_url( $post_id, $zip['zip_url'], 'zip' );
-
-			if ( $webfont_url ) {
-				$webfont_url = KFI_Plugin::instance()->get_download_tracker()->get_download_url( $post_id, $webfont_url, 'webfont' );
-			}
 		}
 
 		foreach ( $axes as $axis ) {
@@ -288,12 +282,9 @@ if ( ! function_exists( 'kfi_render_post_template' ) ) {
 					</div>
 					<div class="kfi-inline-cta-row">
 						<a class="button button-primary" href="<?php echo esc_url( $download_url ); ?>" rel="nofollow">Download <?php echo esc_html( $font_name ); ?> ZIP</a>
-						<?php if ( $webfont_url ) : ?>
-							<a class="button" href="<?php echo esc_url( $webfont_url ); ?>" rel="nofollow">Download Webfont Kit<?php echo esc_html( $webfont_size ? ' (' . $webfont_size . ')' : '' ); ?></a>
-						<?php endif; ?>
 					</div>
 					<div class="kfi-source-link-row">
-						<span class="kfi-inline-note">Original ZIP includes source files, OFL.txt, and metadata.json. Webfont kit includes a starter stylesheet for browser use.</span>
+						<span class="kfi-inline-note">Original ZIP includes source files, OFL.txt, and metadata.json.</span>
 						<?php if ( $google_fonts_url ) : ?>
 							<a class="kfi-source-link" href="<?php echo esc_url( $google_fonts_url ); ?>" rel="nofollow noopener" target="_blank">View on Google Fonts</a>
 						<?php endif; ?>
