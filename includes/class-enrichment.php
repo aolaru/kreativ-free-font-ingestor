@@ -59,7 +59,30 @@ class KFI_Enrichment {
 
 		if ( is_wp_error( $bundle ) ) {
 			$font['enrichment_flags'] = array( 'repository_bundle_unavailable' );
-			$this->logger->info( sprintf( 'Enrichment fallback for %s: %s', $family, $bundle->get_error_message() ) );
+			$details                  = $bundle->get_error_data();
+			$context                  = '';
+
+			if ( is_array( $details ) ) {
+				$parts = array();
+
+				if ( ! empty( $details['classification'] ) ) {
+					$parts[] = 'classification=' . sanitize_text_field( $details['classification'] );
+				}
+
+				if ( ! empty( $details['matched_path'] ) ) {
+					$parts[] = 'matched_path=' . sanitize_text_field( $details['matched_path'] );
+				}
+
+				if ( ! empty( $details['attempted_paths'] ) && is_array( $details['attempted_paths'] ) ) {
+					$parts[] = 'attempted_paths=' . implode( ',', array_map( 'sanitize_text_field', $details['attempted_paths'] ) );
+				}
+
+				if ( ! empty( $parts ) ) {
+					$context = ' [' . implode( '; ', $parts ) . ']';
+				}
+			}
+
+			$this->logger->info( sprintf( 'Enrichment fallback for %s: %s%s', $family, $bundle->get_error_message(), $context ) );
 			return $font;
 		}
 

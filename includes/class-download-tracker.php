@@ -11,6 +11,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class KFI_Download_Tracker {
 	/**
+	 * Seconds to suppress duplicate tracked download events.
+	 */
+	const DEDUPE_WINDOW = 10;
+
+	/**
 	 * Logger instance.
 	 *
 	 * @var KFI_Logger
@@ -97,7 +102,17 @@ class KFI_Download_Tracker {
 		$user_agent  = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
 		$ip_source   = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
 		$ip_hash     = '' !== $ip_source ? hash( 'sha256', $ip_source ) : '';
+		$ua_hash     = '' !== $user_agent ? hash( 'sha256', $user_agent ) : 'noua';
 		$count       = (int) get_post_meta( $post_id, '_kfi_download_count', true );
+		$dedupe_key  = sprintf(
+			'kfi_dl_%s',
+			hash( 'sha256', implode( '|', array( $post_id, $asset, $ip_hash, $ua_hash ) ) )
+		);
+
+		if ( get_transient( $dedupe_key ) ) {
+			$this->logger->info( sprintf( 'Deduped %s download for post #%d (%s).', $asset, $post_id, $font_family ) );
+			return;
+		}
 
 		$wpdb->insert(
 			$table_name,
@@ -114,6 +129,7 @@ class KFI_Download_Tracker {
 
 		update_post_meta( $post_id, '_kfi_download_count', $count + 1 );
 		update_post_meta( $post_id, '_kfi_last_download_at', current_time( 'mysql', true ) );
+		set_transient( $dedupe_key, 1, self::DEDUPE_WINDOW );
 
 		$this->logger->info( sprintf( 'Tracked %s download for post #%d (%s).', $asset, $post_id, $font_family ) );
 	}

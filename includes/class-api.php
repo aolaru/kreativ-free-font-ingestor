@@ -113,11 +113,14 @@ class KFI_API {
 			return new WP_Error( 'kfi_license_missing_family', 'Font family is missing for license verification.' );
 		}
 
-		$candidates = $this->get_family_directory_candidates( $family );
+		$candidates          = $this->get_family_directory_candidates( $family );
+		$attempted_ofl_paths = array();
+		$request_reason      = '';
 
 		foreach ( $candidates as $directory ) {
 			$ofl_path = 'ofl/' . $directory . '/OFL.txt';
 			$ofl_url  = $this->license_repo_base . $ofl_path;
+			$attempted_ofl_paths[] = $ofl_path;
 			$ofl_text = $this->fetch_text_file( $ofl_url );
 
 			if ( ! is_wp_error( $ofl_text ) ) {
@@ -126,7 +129,14 @@ class KFI_API {
 					'license_text' => $ofl_text,
 					'license_url'  => $ofl_url,
 					'repo_path'    => $ofl_path,
+					'verification_status' => 'verified',
 				);
+			}
+
+			$ofl_error_data = $ofl_text->get_error_data();
+
+			if ( is_array( $ofl_error_data ) && ! empty( $ofl_error_data['reason'] ) ) {
+				$request_reason = sanitize_text_field( $ofl_error_data['reason'] );
 			}
 
 			foreach ( array( 'apache/' . $directory . '/LICENSE.txt', 'ufl/' . $directory . '/UFL.txt' ) as $non_ofl_path ) {
@@ -136,7 +146,13 @@ class KFI_API {
 				if ( ! is_wp_error( $non_ofl_text ) ) {
 					return new WP_Error(
 						'kfi_non_ofl_font',
-						sprintf( 'Skipped %s because the official Google Fonts repository does not classify it under OFL.', $family )
+						sprintf( 'Skipped %s because the official Google Fonts repository classifies it under a non-OFL license path.', $family ),
+						array(
+							'family'          => $family,
+							'classification'  => 'non_ofl',
+							'matched_path'    => $non_ofl_path,
+							'attempted_paths' => $attempted_ofl_paths,
+						)
 					);
 				}
 			}
@@ -144,7 +160,13 @@ class KFI_API {
 
 		return new WP_Error(
 			'kfi_unverified_license',
-			sprintf( 'Skipped %s because its OFL license could not be verified from the official Google Fonts repository.', $family )
+			sprintf( 'Skipped %s because its OFL license could not be verified from the official Google Fonts repository.', $family ),
+			array(
+				'family'          => $family,
+				'classification'  => '' !== $request_reason ? 'request_error' : 'unverified',
+				'attempted_paths' => $attempted_ofl_paths,
+				'request_reason'  => $request_reason,
+			)
 		);
 	}
 
@@ -208,17 +230,39 @@ class KFI_API {
 		);
 
 		if ( is_wp_error( $response ) ) {
-			return $response;
+			return new WP_Error(
+				'kfi_remote_request_failed',
+				'Remote file request failed.',
+				array(
+					'url'    => esc_url_raw( $url ),
+					'reason' => $response->get_error_message(),
+				)
+			);
 		}
 
-		if ( 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
-			return new WP_Error( 'kfi_remote_missing', 'Remote file not found.' );
+		$status_code = (int) wp_remote_retrieve_response_code( $response );
+
+		if ( 200 !== $status_code ) {
+			return new WP_Error(
+				'kfi_remote_missing',
+				'Remote file not found.',
+				array(
+					'url'         => esc_url_raw( $url ),
+					'status_code' => $status_code,
+				)
+			);
 		}
 
 		$body = wp_remote_retrieve_body( $response );
 
 		if ( '' === $body ) {
-			return new WP_Error( 'kfi_remote_empty', 'Remote file was empty.' );
+			return new WP_Error(
+				'kfi_remote_empty',
+				'Remote file was empty.',
+				array(
+					'url' => esc_url_raw( $url ),
+				)
+			);
 		}
 
 		return $body;

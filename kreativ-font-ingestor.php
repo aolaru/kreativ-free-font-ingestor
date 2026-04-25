@@ -24,6 +24,7 @@ define( 'KFI_PLUGIN_FILE', __FILE__ );
 define( 'KFI_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'KFI_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'KFI_OPTION_SETTINGS', 'kfi_settings' );
+define( 'KFI_OPTION_IMPORT_QUEUE', 'kfi_import_queue' );
 define( 'KFI_TRANSIENT_FONTS', 'kfi_google_fonts_list' );
 define( 'KFI_CRON_HOOK', 'kfi_cron_import_fonts' );
 define( 'KFI_IMPORT_LOCK', 'kfi_import_lock' );
@@ -303,6 +304,7 @@ final class KFI_Plugin {
 	 */
 	public static function deactivate() {
 		wp_clear_scheduled_hook( KFI_CRON_HOOK );
+		delete_option( KFI_OPTION_IMPORT_QUEUE );
 
 		$logger = new KFI_Logger();
 		$logger->info( 'Plugin deactivated.' );
@@ -394,50 +396,44 @@ final class KFI_Plugin {
 				return $results;
 			}
 
-			$eligible_fonts = array();
+			$catalog_index = $this->build_font_catalog_index( $fonts );
+			$queue         = $this->get_import_queue( $fonts );
 
-			foreach ( $fonts as $font ) {
-				$font_family = isset( $font['family'] ) ? sanitize_text_field( $font['family'] ) : '';
+			if ( empty( $queue['pending'] ) ) {
+				$this->logger->info( 'No eligible unimported fonts were found for this run.' );
+				return $results;
+			}
 
-				if ( empty( $font_family ) ) {
-					++$results['skipped'];
+			$deadline = time() + 20;
+			$processed = 0;
+
+			while ( $results['imported'] < $limit && time() < $deadline && ! empty( $queue['pending'] ) ) {
+				$font_slug = array_shift( $queue['pending'] );
+
+				if ( empty( $font_slug ) ) {
 					continue;
 				}
-
-				$font_slug = sanitize_title( $font_family );
 
 				if ( $this->is_font_imported( $font_slug ) ) {
 					++$results['skipped'];
 					continue;
 				}
 
-				$eligible_fonts[] = $font;
-			}
-
-			$total_fonts = count( $eligible_fonts );
-
-			if ( 0 === $total_fonts ) {
-				$this->logger->info( 'No eligible unimported fonts were found for this run.' );
-				return $results;
-			}
-
-			$deadline = time() + 20;
-			shuffle( $eligible_fonts );
-
-			foreach ( $eligible_fonts as $font ) {
-				if ( $results['imported'] >= $limit || time() >= $deadline ) {
-					break;
+				if ( empty( $catalog_index[ $font_slug ] ) ) {
+					++$results['skipped'];
+					continue;
 				}
 
+				$font        = $catalog_index[ $font_slug ];
 				$font_family = isset( $font['family'] ) ? sanitize_text_field( $font['family'] ) : '';
-				$font_slug   = sanitize_title( $font_family );
 				$font        = $this->enrichment->enrich_font( $font );
+				++$processed;
 
 				$download = $this->downloader->download_font_family( $font );
 
 				if ( is_wp_error( $download ) ) {
 					$results['errors'][] = sprintf( '%s: %s', $font_family, $download->get_error_message() );
-					$this->logger->error( sprintf( 'Download failed for %s. %s', $font_family, $download->get_error_message() ) );
+					$this->logger->error( sprintf( 'Download failed for %s. %s%s', $font_family, $download->get_error_message(), $this->format_error_diagnostics( $download ) ) );
 					continue;
 				}
 
@@ -503,12 +499,19 @@ final class KFI_Plugin {
 				}
 			}
 
+			$queue['last_run_at']       = current_time( 'mysql', true );
+			$queue['last_processed']    = $processed;
+			$queue['last_imported']     = $results['imported'];
+			$queue['last_error_count']  = count( $results['errors'] );
+			$this->save_import_queue( $queue );
+
 			$this->logger->info(
 				sprintf(
-					'Import finished. Imported: %d. Skipped: %d. Errors: %d',
+					'Import finished. Imported: %d. Skipped: %d. Errors: %d. Queue remaining: %d',
 					$results['imported'],
 					$results['skipped'],
-					count( $results['errors'] )
+					count( $results['errors'] ),
+					isset( $queue['pending'] ) && is_array( $queue['pending'] ) ? count( $queue['pending'] ) : 0
 				)
 			);
 
@@ -1001,6 +1004,161 @@ final class KFI_Plugin {
 	 */
 	public function get_cron() {
 		return $this->cron;
+	}
+
+	/**
+	 * Build a slug-indexed catalog for queue consumption.
+	 *
+	 * @param array<int, array<string, mixed>> $fonts Font catalog.
+	 * @return array<string, array<string, mixed>>
+	 */
+	private function build_font_catalog_index( array $fonts ) {
+		$index = array();
+
+		foreach ( $fonts as $font ) {
+			$family = isset( $font['family'] ) ? sanitize_text_field( $font['family'] ) : '';
+			$slug   = sanitize_title( $family );
+
+			if ( '' === $family || '' === $slug ) {
+				continue;
+			}
+
+			$index[ $slug ] = $font;
+		}
+
+		return $index;
+	}
+
+	/**
+	 * Get or rebuild the pending import queue.
+	 *
+	 * @param array<int, array<string, mixed>> $fonts Font catalog.
+	 * @return array<string, mixed>
+	 */
+	private function get_import_queue( array $fonts ) {
+		$queue        = get_option( KFI_OPTION_IMPORT_QUEUE, array() );
+		$catalog_hash = $this->get_catalog_hash( $fonts );
+
+		if ( is_array( $queue ) && isset( $queue['catalog_hash'], $queue['pending'] ) && $catalog_hash === $queue['catalog_hash'] && is_array( $queue['pending'] ) && ! empty( $queue['pending'] ) ) {
+			return $queue;
+		}
+
+		$imported_lookup = $this->get_imported_slug_lookup();
+		$pending         = array();
+
+		foreach ( $fonts as $font ) {
+			$family = isset( $font['family'] ) ? sanitize_text_field( $font['family'] ) : '';
+			$slug   = sanitize_title( $family );
+
+			if ( '' === $slug || isset( $imported_lookup[ $slug ] ) ) {
+				continue;
+			}
+
+			$pending[] = $slug;
+		}
+
+		shuffle( $pending );
+
+		$queue = array(
+			'catalog_hash'     => $catalog_hash,
+			'pending'          => $pending,
+			'rebuilt_at'       => current_time( 'mysql', true ),
+			'last_run_at'      => '',
+			'last_processed'   => 0,
+			'last_imported'    => 0,
+			'last_error_count' => 0,
+		);
+
+		$this->save_import_queue( $queue );
+
+		return $queue;
+	}
+
+	/**
+	 * Persist queue state.
+	 *
+	 * @param array<string, mixed> $queue Queue state.
+	 * @return void
+	 */
+	private function save_import_queue( array $queue ) {
+		update_option( KFI_OPTION_IMPORT_QUEUE, $queue, false );
+	}
+
+	/**
+	 * Build a lookup of imported slugs.
+	 *
+	 * @return array<string, bool>
+	 */
+	private function get_imported_slug_lookup() {
+		global $wpdb;
+
+		$table_name = $wpdb->prefix . KFI_TABLE_IMPORTS;
+		$rows       = $wpdb->get_col( "SELECT font_slug FROM {$table_name}" );
+		$lookup     = array();
+
+		foreach ( (array) $rows as $slug ) {
+			$slug = sanitize_title( $slug );
+
+			if ( '' !== $slug ) {
+				$lookup[ $slug ] = true;
+			}
+		}
+
+		return $lookup;
+	}
+
+	/**
+	 * Compute a stable hash for the current catalog.
+	 *
+	 * @param array<int, array<string, mixed>> $fonts Font catalog.
+	 * @return string
+	 */
+	private function get_catalog_hash( array $fonts ) {
+		$signature = array();
+
+		foreach ( $fonts as $font ) {
+			$signature[] = array(
+				'family'       => isset( $font['family'] ) ? sanitize_text_field( $font['family'] ) : '',
+				'lastModified' => isset( $font['lastModified'] ) ? sanitize_text_field( $font['lastModified'] ) : '',
+				'version'      => isset( $font['version'] ) ? sanitize_text_field( $font['version'] ) : '',
+			);
+		}
+
+		return hash( 'sha256', wp_json_encode( $signature ) );
+	}
+
+	/**
+	 * Format structured WP_Error diagnostics for logs.
+	 *
+	 * @param WP_Error $error Error object.
+	 * @return string
+	 */
+	private function format_error_diagnostics( WP_Error $error ) {
+		$data = $error->get_error_data();
+
+		if ( ! is_array( $data ) ) {
+			return '';
+		}
+
+		$parts = array();
+
+		if ( ! empty( $data['classification'] ) ) {
+			$parts[] = 'classification=' . sanitize_text_field( $data['classification'] );
+		}
+
+		if ( ! empty( $data['matched_path'] ) ) {
+			$parts[] = 'matched_path=' . sanitize_text_field( $data['matched_path'] );
+		}
+
+		if ( ! empty( $data['attempted_paths'] ) && is_array( $data['attempted_paths'] ) ) {
+			$parts[] = 'attempted_paths=' . implode( ',', array_map( 'sanitize_text_field', $data['attempted_paths'] ) );
+		}
+
+		if ( ! empty( $data['request_reason'] ) ) {
+			$parts[] = 'request_reason=' . sanitize_text_field( $data['request_reason'] );
+		}
+
+		return empty( $parts ) ? '' : ' [' . implode( '; ', $parts ) . ']';
 	}
 }
 
