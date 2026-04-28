@@ -26,7 +26,7 @@ Key features:
 * JSON-LD schema and social meta output for imported font posts
 * Automatic branded featured image generation for imported posts
 * Duplicate prevention via a dedicated database table
-* WP-Cron support every 6 hours
+* WP-Cron support every 8 hours
 * Admin logs viewer and manual import trigger
 * Secure settings handling, nonces, sanitization, and capability checks
 

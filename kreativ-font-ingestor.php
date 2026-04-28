@@ -203,8 +203,8 @@ final class KFI_Plugin {
 
 		$updated = false;
 
-		if ( ! isset( $settings['import_limit'] ) || in_array( absint( $settings['import_limit'] ), array( 5, 10 ), true ) ) {
-			$settings['import_limit'] = 3;
+		if ( ! isset( $settings['import_limit'] ) || in_array( absint( $settings['import_limit'] ), array( 3, 5, 10 ), true ) ) {
+			$settings['import_limit'] = 2;
 			$updated                  = true;
 		}
 
@@ -234,7 +234,7 @@ final class KFI_Plugin {
 		$defaults = array(
 			'api_key'                    => '',
 			'cron_enabled'               => 1,
-			'import_limit'               => 3,
+			'import_limit'               => 2,
 			'category_id'                => 0,
 			'affiliate_html'             => '',
 			'taxonomy_parent_fonts'      => 'Fonts',
@@ -323,7 +323,7 @@ final class KFI_Plugin {
 				array(
 					'api_key'                  => '',
 					'cron_enabled'             => 1,
-					'import_limit'             => 3,
+					'import_limit'             => 2,
 					'category_id'              => 0,
 					'affiliate_html'           => '',
 					'taxonomy_parent_fonts'    => 'Fonts',

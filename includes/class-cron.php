@@ -106,7 +106,7 @@ class KFI_Cron {
 			return;
 		}
 
-		$limit = isset( $settings['import_limit'] ) ? absint( $settings['import_limit'] ) : 3;
+		$limit = isset( $settings['import_limit'] ) ? absint( $settings['import_limit'] ) : 2;
 		$started_at = current_time( 'mysql' );
 
 		update_option(
