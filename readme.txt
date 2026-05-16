@@ -4,7 +4,7 @@ Tags: fonts, google fonts, seo, importer, zip
 Requires at least: 6.2
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.1.1
+Stable tag: 1.1.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -22,7 +22,7 @@ Key features:
 * `metadata.json` generation for downstream integrations
 * ZIP package generation for direct download links
 * SEO-oriented WordPress post publishing with richer landing-page sections
-* Live front-end font preview with editable sample text
+* Generated font specimen preview images
 * JSON-LD schema and social meta output for imported font posts
 * Automatic branded featured image generation for imported posts
 * Duplicate prevention via a dedicated database table
@@ -76,6 +76,11 @@ Imported families are recorded in a dedicated WordPress database table with a un
 Yes. The plugin includes an affiliate placeholder block in the post template and an admin setting for optional affiliate HTML.
 
 == Changelog ==
+
+= 1.1.2 =
+
+* Added import queue status and recent import issue visibility in the admin dashboard
+* Bumped default operational visibility for pending fonts, imported totals, and estimated days remaining
 
 = 1.0.5 =
 

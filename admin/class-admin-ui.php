@@ -331,12 +331,14 @@ class KFI_Admin_UI {
 			return;
 		}
 
-		$logger        = $this->plugin->get_logger();
-		$logs          = $logger->get_logs();
-		$cron_status   = $this->plugin->get_cron()->get_status_summary();
-		$tracker       = $this->plugin->get_download_tracker();
-		$download_totals = $tracker->get_overview_stats();
-		$top_downloads   = $tracker->get_top_downloads( 10 );
+		$logger           = $this->plugin->get_logger();
+		$logs             = $logger->get_logs();
+		$cron_status      = $this->plugin->get_cron()->get_status_summary();
+		$queue_status     = $this->plugin->get_import_queue_status();
+		$import_issues    = $this->plugin->get_recent_import_issues( 10 );
+		$tracker          = $this->plugin->get_download_tracker();
+		$download_totals  = $tracker->get_overview_stats();
+		$top_downloads    = $tracker->get_top_downloads( 10 );
 		$recent_downloads = $tracker->get_recent_downloads( 15 );
 		?>
 		<div class="wrap">
@@ -441,6 +443,87 @@ class KFI_Admin_UI {
 						<th><?php esc_html_e( 'Last Run Errors', 'kreativ-font-ingestor' ); ?></th>
 						<td><?php echo esc_html( (string) absint( $cron_status['error_count'] ) ); ?></td>
 					</tr>
+				</tbody>
+			</table>
+
+			<hr />
+
+			<h2><?php esc_html_e( 'Import Queue', 'kreativ-font-ingestor' ); ?></h2>
+			<div style="display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:12px;max-width:920px;margin-bottom:16px;">
+				<div style="background:#fff;border:1px solid #dcdcde;border-radius:12px;padding:14px;">
+					<strong style="display:block;font-size:24px;"><?php echo esc_html( (string) absint( $queue_status['pending_count'] ) ); ?></strong>
+					<span><?php esc_html_e( 'Pending Fonts', 'kreativ-font-ingestor' ); ?></span>
+				</div>
+				<div style="background:#fff;border:1px solid #dcdcde;border-radius:12px;padding:14px;">
+					<strong style="display:block;font-size:24px;"><?php echo esc_html( (string) absint( $queue_status['imported_total'] ) ); ?></strong>
+					<span><?php esc_html_e( 'Imported Fonts', 'kreativ-font-ingestor' ); ?></span>
+				</div>
+				<div style="background:#fff;border:1px solid #dcdcde;border-radius:12px;padding:14px;">
+					<strong style="display:block;font-size:24px;"><?php echo esc_html( (string) absint( $queue_status['daily_rate'] ) ); ?></strong>
+					<span><?php esc_html_e( 'Fonts Per Day', 'kreativ-font-ingestor' ); ?></span>
+				</div>
+				<div style="background:#fff;border:1px solid #dcdcde;border-radius:12px;padding:14px;">
+					<strong style="display:block;font-size:24px;"><?php echo esc_html( $queue_status['estimated_days'] ? (string) absint( $queue_status['estimated_days'] ) : '—' ); ?></strong>
+					<span><?php esc_html_e( 'Estimated Days Left', 'kreativ-font-ingestor' ); ?></span>
+				</div>
+			</div>
+			<table class="widefat striped" style="max-width:920px;margin-bottom:16px;">
+				<tbody>
+					<tr>
+						<th style="width:220px;"><?php esc_html_e( 'Last Queue Rebuild', 'kreativ-font-ingestor' ); ?></th>
+						<td><?php echo esc_html( ! empty( $queue_status['rebuilt_at'] ) ? $queue_status['rebuilt_at'] : '—' ); ?></td>
+					</tr>
+					<tr>
+						<th><?php esc_html_e( 'Last Queue Run', 'kreativ-font-ingestor' ); ?></th>
+						<td><?php echo esc_html( ! empty( $queue_status['last_run_at'] ) ? $queue_status['last_run_at'] : '—' ); ?></td>
+					</tr>
+					<tr>
+						<th><?php esc_html_e( 'Last Processed / Imported / Errors', 'kreativ-font-ingestor' ); ?></th>
+						<td>
+							<?php
+							echo esc_html(
+								sprintf(
+									'%1$d / %2$d / %3$d',
+									absint( $queue_status['last_processed'] ),
+									absint( $queue_status['last_imported'] ),
+									absint( $queue_status['last_error_count'] )
+								)
+							);
+							?>
+						</td>
+					</tr>
+					<tr>
+						<th><?php esc_html_e( 'Last Processed Slugs', 'kreativ-font-ingestor' ); ?></th>
+						<td><?php echo esc_html( ! empty( $queue_status['last_processed_slugs'] ) ? implode( ', ', array_map( 'sanitize_title', $queue_status['last_processed_slugs'] ) ) : '—' ); ?></td>
+					</tr>
+					<tr>
+						<th><?php esc_html_e( 'Next Pending Slugs', 'kreativ-font-ingestor' ); ?></th>
+						<td><?php echo esc_html( ! empty( $queue_status['next_pending'] ) ? implode( ', ', array_map( 'sanitize_title', $queue_status['next_pending'] ) ) : '—' ); ?></td>
+					</tr>
+				</tbody>
+			</table>
+
+			<h3><?php esc_html_e( 'Recent Import Issues', 'kreativ-font-ingestor' ); ?></h3>
+			<table class="widefat striped" style="max-width:920px;margin-bottom:16px;">
+				<thead>
+					<tr>
+						<th style="width:160px;"><?php esc_html_e( 'Time', 'kreativ-font-ingestor' ); ?></th>
+						<th style="width:170px;"><?php esc_html_e( 'Type', 'kreativ-font-ingestor' ); ?></th>
+						<th><?php esc_html_e( 'Message', 'kreativ-font-ingestor' ); ?></th>
+					</tr>
+				</thead>
+				<tbody>
+					<?php if ( empty( $import_issues ) ) : ?>
+						<tr><td colspan="3"><?php esc_html_e( 'No recent import issues found in the log tail.', 'kreativ-font-ingestor' ); ?></td></tr>
+					<?php else : ?>
+						<?php foreach ( $import_issues as $issue ) : ?>
+							<tr>
+								<td><?php echo esc_html( ! empty( $issue['time'] ) ? $issue['time'] : '—' ); ?></td>
+								<td><?php echo esc_html( ! empty( $issue['type'] ) ? $issue['type'] : __( 'Import issue', 'kreativ-font-ingestor' ) ); ?></td>
+								<td style="word-break:break-word;"><?php echo esc_html( ! empty( $issue['message'] ) ? $issue['message'] : '—' ); ?></td>
+							</tr>
+						<?php endforeach; ?>
+					<?php endif; ?>
 				</tbody>
 			</table>
 

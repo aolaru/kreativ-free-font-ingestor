@@ -3,7 +3,7 @@
  * Plugin Name: Kreativ Free Fonts
  * Plugin URI: https://example.com/kreativ-font-ingestor
  * Description: Imports open-source Google Fonts, stores them locally with OFL licensing, generates ZIP packages, and publishes SEO-ready WordPress posts.
- * Version: 1.1.1
+ * Version: 1.1.2
  * Author: Kreativ
  * Author URI: https://example.com
  * Text Domain: kreativ-font-ingestor
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'KFI_VERSION', '1.1.1' );
+define( 'KFI_VERSION', '1.1.2' );
 define( 'KFI_PLUGIN_FILE', __FILE__ );
 define( 'KFI_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'KFI_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -343,7 +343,7 @@ final class KFI_Plugin {
 	 * @param bool $manual Whether this is a manual run.
 	 * @return array<string, mixed>
 	 */
-	public function run_import( $limit = 3, $manual = false ) {
+	public function run_import( $limit = 2, $manual = false ) {
 		$limit    = max( 1, absint( $limit ) );
 		$settings = $this->get_settings();
 
@@ -404,8 +404,9 @@ final class KFI_Plugin {
 				return $results;
 			}
 
-			$deadline = time() + 20;
-			$processed = 0;
+			$deadline        = time() + 20;
+			$processed       = 0;
+			$processed_slugs = array();
 
 			while ( $results['imported'] < $limit && time() < $deadline && ! empty( $queue['pending'] ) ) {
 				$font_slug = array_shift( $queue['pending'] );
@@ -428,6 +429,7 @@ final class KFI_Plugin {
 				$font_family = isset( $font['family'] ) ? sanitize_text_field( $font['family'] ) : '';
 				$font        = $this->enrichment->enrich_font( $font );
 				++$processed;
+				$processed_slugs[] = $font_slug;
 
 				$download = $this->downloader->download_font_family( $font );
 
@@ -494,8 +496,10 @@ final class KFI_Plugin {
 
 			$queue['last_run_at']       = current_time( 'mysql', true );
 			$queue['last_processed']    = $processed;
+			$queue['last_processed_slugs'] = array_slice( array_map( 'sanitize_title', $processed_slugs ), -10 );
 			$queue['last_imported']     = $results['imported'];
 			$queue['last_error_count']  = count( $results['errors'] );
+			$queue['last_errors']       = array_slice( array_map( 'sanitize_text_field', $results['errors'] ), -10 );
 			$this->save_import_queue( $queue );
 
 			$this->logger->info(
@@ -990,6 +994,140 @@ final class KFI_Plugin {
 	}
 
 	/**
+	 * Get import queue status for admin visibility.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function get_import_queue_status() {
+		global $wpdb;
+
+		$queue          = get_option( KFI_OPTION_IMPORT_QUEUE, array() );
+		$queue          = is_array( $queue ) ? $queue : array();
+		$pending        = isset( $queue['pending'] ) && is_array( $queue['pending'] ) ? array_map( 'sanitize_title', $queue['pending'] ) : array();
+		$settings       = $this->get_settings();
+		$import_limit   = isset( $settings['import_limit'] ) ? max( 1, absint( $settings['import_limit'] ) ) : 2;
+		$runs_per_day   = 3;
+		$table_name     = $wpdb->prefix . KFI_TABLE_IMPORTS;
+		$imported_total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table_name}" );
+		$pending_count  = count( $pending );
+		$daily_rate     = max( 1, $import_limit * $runs_per_day );
+
+		return array(
+			'pending_count'        => $pending_count,
+			'imported_total'       => $imported_total,
+			'total_candidates'     => isset( $queue['total_candidates'] ) ? absint( $queue['total_candidates'] ) : $pending_count,
+			'rebuilt_at'           => isset( $queue['rebuilt_at'] ) ? sanitize_text_field( $queue['rebuilt_at'] ) : '',
+			'last_run_at'          => isset( $queue['last_run_at'] ) ? sanitize_text_field( $queue['last_run_at'] ) : '',
+			'last_processed'       => isset( $queue['last_processed'] ) ? absint( $queue['last_processed'] ) : 0,
+			'last_imported'        => isset( $queue['last_imported'] ) ? absint( $queue['last_imported'] ) : 0,
+			'last_error_count'     => isset( $queue['last_error_count'] ) ? absint( $queue['last_error_count'] ) : 0,
+			'last_processed_slugs' => isset( $queue['last_processed_slugs'] ) && is_array( $queue['last_processed_slugs'] ) ? array_map( 'sanitize_title', $queue['last_processed_slugs'] ) : array(),
+			'last_errors'          => isset( $queue['last_errors'] ) && is_array( $queue['last_errors'] ) ? array_map( 'sanitize_text_field', $queue['last_errors'] ) : array(),
+			'next_pending'         => array_slice( $pending, 0, 8 ),
+			'estimated_days'       => $pending_count ? (int) ceil( $pending_count / $daily_rate ) : 0,
+			'daily_rate'           => $daily_rate,
+		);
+	}
+
+	/**
+	 * Get recent import issues from the log tail.
+	 *
+	 * @param int $limit Max issues to return.
+	 * @return array<int, array<string, string>>
+	 */
+	public function get_recent_import_issues( $limit = 10 ) {
+		$logs   = $this->logger->get_logs( 600 );
+		$lines  = array_reverse( preg_split( '/\r\n|\r|\n/', $logs ) );
+		$issues = array();
+
+		foreach ( $lines as $line ) {
+			$line = trim( (string) $line );
+
+			if ( '' === $line || ! $this->is_import_issue_log_line( $line ) ) {
+				continue;
+			}
+
+			$issues[] = $this->parse_import_issue_log_line( $line );
+
+			if ( count( $issues ) >= absint( $limit ) ) {
+				break;
+			}
+		}
+
+		return $issues;
+	}
+
+	/**
+	 * Determine whether a log line should be surfaced as an import issue.
+	 *
+	 * @param string $line Log line.
+	 * @return bool
+	 */
+	private function is_import_issue_log_line( $line ) {
+		$needles = array(
+			'[ERROR]',
+			'classification=',
+			'Download failed',
+			'ZIP failed',
+			'Publishing failed',
+			'Preview asset preparation failed',
+			'Featured image generation failed',
+			'Post content refresh failed',
+			'Regeneration failed',
+			'Preview backfill failed',
+			'Skipped ',
+			'Enrichment fallback',
+		);
+
+		foreach ( $needles as $needle ) {
+			if ( false !== strpos( $line, $needle ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Parse a log line into a compact admin issue row.
+	 *
+	 * @param string $line Log line.
+	 * @return array<string, string>
+	 */
+	private function parse_import_issue_log_line( $line ) {
+		$time    = '';
+		$level   = '';
+		$message = $line;
+
+		if ( preg_match( '/^\[([^\]]+)\]\s+\[([^\]]+)\]\s+(.*)$/', $line, $matches ) ) {
+			$time    = sanitize_text_field( $matches[1] );
+			$level   = sanitize_text_field( $matches[2] );
+			$message = sanitize_text_field( $matches[3] );
+		}
+
+		$type = __( 'Import issue', 'kreativ-font-ingestor' );
+
+		if ( false !== stripos( $message, 'license' ) || false !== stripos( $message, 'classification=' ) || false !== stripos( $message, 'OFL' ) ) {
+			$type = __( 'License verification', 'kreativ-font-ingestor' );
+		} elseif ( false !== stripos( $message, 'Download failed' ) ) {
+			$type = __( 'Download', 'kreativ-font-ingestor' );
+		} elseif ( false !== stripos( $message, 'ZIP failed' ) ) {
+			$type = __( 'Package', 'kreativ-font-ingestor' );
+		} elseif ( false !== stripos( $message, 'Publishing failed' ) || false !== stripos( $message, 'Post content refresh failed' ) ) {
+			$type = __( 'Publishing', 'kreativ-font-ingestor' );
+		} elseif ( false !== stripos( $message, 'Preview' ) || false !== stripos( $message, 'Featured image' ) ) {
+			$type = __( 'Media generation', 'kreativ-font-ingestor' );
+		}
+
+		return array(
+			'time'    => $time,
+			'level'   => $level,
+			'type'    => sanitize_text_field( $type ),
+			'message' => $message,
+		);
+	}
+
+	/**
 	 * Build a slug-indexed catalog for queue consumption.
 	 *
 	 * @param array<int, array<string, mixed>> $fonts Font catalog.
@@ -1045,11 +1183,14 @@ final class KFI_Plugin {
 		$queue = array(
 			'catalog_hash'     => $catalog_hash,
 			'pending'          => $pending,
+			'total_candidates' => count( $pending ),
 			'rebuilt_at'       => current_time( 'mysql', true ),
 			'last_run_at'      => '',
 			'last_processed'   => 0,
+			'last_processed_slugs' => array(),
 			'last_imported'    => 0,
 			'last_error_count' => 0,
+			'last_errors'      => array(),
 		);
 
 		$this->save_import_queue( $queue );
